@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+*.egg-info/
+.pytest_cache/
+# Web
+web/node_modules/
+web/dist/
+web/dist-static/
+advisor/static/
+# QNX SDP content must NEVER be committed (license, see spec section 4)
+.qnx-advisor/
+sysroot-index-*.json
+*.ifs
+*.qcow2
+*.img
+qnx-target/vm/local/
+qnx-target/build/
+# Generated per-job output
+out/
+kits/
+*.kev

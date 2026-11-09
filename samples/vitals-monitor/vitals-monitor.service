@@ -1,0 +1,10 @@
+[Unit]
+Description=Vitals monitor (pulse oximeter over I2C)
+
+[Service]
+ExecStart=/usr/local/bin/vitals_monitor
+User=root
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

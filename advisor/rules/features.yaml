@@ -1,0 +1,120 @@
+# Pillar 1 feature catalogue. Original prose. APIs are checked by `make rules-validate`.
+# {component} and {service} are filled in by the deterministic synthesizer.
+
+resource_manager:
+  apis: ["dispatch_create", "iofunc_func_init", "iofunc_attr_init", "resmgr_attach", "dispatch_context_alloc", "dispatch_block", "dispatch_handler", "iofunc_devctl_default"]
+  headers: ["sys/dispatch.h", "sys/iofunc.h", "devctl.h"]
+  rationale: >-
+    {component} owns a device and a processing loop. On QNX that is naturally a resource
+    manager: it registers /dev/{service} in the path space, clients use plain open/read/
+    write/devctl, and every request arrives as a message that inherits the client's
+    priority. Device access moves out of client code into one process that can be
+    restarted on its own.
+  diagram: |
+    flowchart LR
+      C1["client: open + devctl"] -->|"MsgSend, client priority"| R["/dev/{service} resource manager"]
+      T["timer pulse"] --> R
+      R --> D["device driver resmgr"]
+
+channels_pulses:
+  apis: ["ChannelCreate", "ConnectAttach", "MsgReceivePulse", "MsgSendPulse", "timer_create", "SIGEV_PULSE_INIT"]
+  headers: ["sys/neutrino.h", "sys/siginfo.h"]
+  rationale: >-
+    {component} multiplexes timers, notifications and I/O in a Linux event loop. A QNX
+    channel replaces it: each source sends a pulse with its own code and priority, and a
+    single receive call hands them to the thread in priority order.
+  diagram: |
+    flowchart LR
+      TM["timer_create, SIGEV_PULSE"] -->|"code TIMER, prio 30"| CH(("channel"))
+      W["worker thread"] -->|"MsgSendPulse, code FLUSH"| CH
+      IO["ionotify on fd"] -->|"code IO"| CH
+      CH --> L["MsgReceivePulse loop"]
+
+priority_inheritance:
+  apis: ["pthread_mutexattr_setprotocol", "PTHREAD_PRIO_INHERIT", "MsgSend"]
+  headers: ["pthread.h"]
+  rationale: >-
+    {component} shares state between threads of different priorities. Priority
+    inheritance on the mutex (or moving the shared state behind message passing, which
+    inherits priority by default) prevents a low-priority holder from delaying the
+    real-time thread.
+
+sporadic_scheduling:
+  apis: ["pthread_attr_setschedpolicy", "SCHED_SPORADIC", "pthread_attr_setschedparam"]
+  headers: ["pthread.h", "sched.h"]
+  rationale: >-
+    Background work in {component} can be given a CPU budget per replenishment period
+    with SCHED_SPORADIC, so it cannot crowd out the time-critical loop. (Adaptive
+    partitioning is not available in SDP 8.0; sporadic scheduling is the in-process tool.)
+
+cpu_time_budget_monitoring:
+  apis: ["pthread_getcpuclockid", "clock_gettime", "ClockId", "timer_create"]
+  headers: ["pthread.h", "time.h"]
+  rationale: >-
+    Read each worker thread's CPU-time clock from {component} periodically (or arm a
+    timer on it) to detect a thread that exceeds its expected budget and report or
+    throttle it.
+
+runmask_affinity:
+  apis: ["ThreadCtl", "_NTO_TCTL_RUNMASK_GET_AND_SET_INHERIT", "RMSK_SET"]
+  headers: ["sys/neutrino.h"]
+  rationale: >-
+    {component} pins work to a CPU. QNX run-masks do this per thread and can set the mask
+    that child threads inherit, keeping the control core free of background work.
+
+ham:
+  apis: ["ham_attach_self", "ham_heartbeat", "ham_detach_self"]
+  headers: ["ha/ham.h"]
+  rationale: >-
+    {component} relies on systemd or scripts for restarts. HAM supervises the process from
+    outside its address space; with a heartbeat it also catches a hung process, not only a
+    dead one.
+  diagram: |
+    flowchart LR
+      S["{service}"] -->|"ham_heartbeat every 0.5 s"| H["HAM"]
+      H -->|"missed heartbeats or death"| A["restart action"]
+      A --> S
+
+procmgr_ability:
+  apis: ["procmgr_ability", "setuid"]
+  headers: ["sys/procmgr.h"]
+  rationale: >-
+    {component} runs as root throughout. procmgr_ability() keeps only the abilities the
+    service still needs after start-up and locks the rest before dropping to a service
+    user.
+
+secpol:
+  apis: []
+  headers: []
+  rationale: >-
+    The same least-privilege intent can be written as a secpol policy for {service}, so
+    the system integrator controls abilities without changing code.
+
+typed_shared_memory:
+  apis: ["shm_open", "mmap", "posix_typed_mem_open"]
+  headers: ["sys/mman.h"]
+  rationale: >-
+    {component} publishes data in shared memory. POSIX shm works on QNX; typed memory is
+    available when the region must map to specific physical memory.
+
+slog2:
+  apis: ["slog2_register", "slog2f"]
+  headers: ["sys/slog2.h"]
+  rationale: >-
+    {component} logs through syslog. slog2 gives per-buffer verbosity and very low
+    overhead in time-critical paths, and slog2info reads the buffers on the target.
+
+tracelogger:
+  apis: []
+  headers: []
+  rationale: >-
+    Capture a kernel event trace with tracelogger while {service} runs and inspect
+    scheduling, IPC and interrupts in the System Profiler (Momentics or the VS Code QNX
+    Toolkit) to confirm the timing behaviour after porting.
+
+hypervisor:
+  apis: []
+  headers: []
+  rationale: >-
+    When {service} must be isolated from untrusted or heavy workloads with stronger
+    guarantees than in-OS scheduling, run them in separate guests under the QNX Hypervisor.

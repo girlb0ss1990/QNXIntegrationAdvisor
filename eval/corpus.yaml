@@ -1,0 +1,16 @@
+# Public OSS C repositories for the accuracy evaluation (spec section 9).
+# Referenced by URL and pinned commit only; nothing is vendored. Fill in `commit` and the
+# expected rule ids in golden.yaml after labelling each repository by hand, then run:
+#   python eval/score.py --corpus eval/corpus.yaml
+# Entries without a commit are skipped.
+
+- url: https://github.com/linux-can/can-utils
+  commit: null        # TODO: pin and label (SocketCAN, epoll candidates)
+- url: https://github.com/troglobit/watchdogd
+  commit: null        # TODO: pin and label (systemd/watchdog, signalfd candidates)
+- url: https://github.com/libuv/libuv
+  commit: null        # TODO: pin and label (epoll/eventfd/inotify behind #ifdef __linux__)
+- url: https://github.com/eclipse/mosquitto
+  commit: null        # TODO: pin and label (sockets, fork, syslog)
+- url: https://github.com/rauc/rauc
+  commit: null        # TODO: pin and label (systemd units, /proc)

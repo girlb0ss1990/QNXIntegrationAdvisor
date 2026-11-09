@@ -1,0 +1,12 @@
+[Unit]
+Description=CAN telemetry aggregation daemon
+After=sys-subsystem-net-devices-can0.device
+
+[Service]
+Type=forking
+ExecStart=/usr/local/sbin/candaemon can0
+Restart=on-failure
+User=root
+
+[Install]
+WantedBy=multi-user.target

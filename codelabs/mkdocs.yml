@@ -1,0 +1,27 @@
+site_name: Bring Your Linux C Project to QNX 8.0
+site_description: Resource managers, pulses and real-time timers, step by step
+docs_dir: docs
+theme:
+  name: material
+  features:
+    - navigation.instant
+    - content.code.copy
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: teal
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: teal
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+nav:
+  - Codelab: index.md

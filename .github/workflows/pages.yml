@@ -1,0 +1,40 @@
+name: pages
+
+# Publishes the codelab (MkDocs Material) and the M0 static report viewer. Neither contains
+# QNX software: the viewer shows our own reports for our own sample code.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - run: pip install -e . mkdocs-material==9.5.44
+      - run: mkdocs build -f codelabs/mkdocs.yml -d ../site
+      - run: cd web && npm ci && npm run build:static
+      - run: python scripts/export_samples.py --static
+      - run: cp -r web/dist-static site/viewer
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+  deploy:
+    needs: build
+    runs-on: ubuntu-24.04
+    environment:
+      name: github-pages
+    steps:
+      - uses: actions/deploy-pages@v4

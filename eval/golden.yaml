@@ -1,0 +1,48 @@
+# Hand-labelled expected findings (rule ids) per corpus entry.
+# Labels were written by reading the code, independently of the tool's output.
+# Caveat: the three samples were written by the same author as the rules, so they are
+# a regression set, not an unbiased accuracy estimate. See corpus.yaml for public repos.
+
+samples/motor-pid-controller:
+  - LNX-EPOLL
+  - LNX-TIMERFD
+  - LNX-INOTIFY            # available on QNX 8.0 via -lfsnotify
+  - LNX-SYSFS              # PWM duty cycle through /sys/class/pwm
+  - LNX-IOCTL              # TIOCMBIS on the serial encoder
+  - LNX-AFFINITY
+  - LNX-PRIO-INV           # default mutex shared with a low-priority telemetry thread
+  - LNX-CPU-BUDGET         # SCHED_FIFO loop next to a worker thread
+  - LNX-PERIODIC-SLEEP     # telemetry thread usleep loop
+  - LNX-LIBS               # pthread rt
+  - LNX-SYSTEMD
+  - BLD-COMPILER           # hardcoded gcc, -march=native
+
+samples/can-telemetry-daemon:
+  - LNX-EPOLL
+  - LNX-SOCKETCAN
+  - LNX-EVENTFD
+  - LNX-SIGNALFD
+  - LNX-PROCFS             # /proc/self/statm
+  - LNX-FORK               # fork() daemonizing with a thread running afterwards
+  - LNX-IOCTL              # SIOCGIFINDEX
+  - LNX-SOCKLIB            # UNIX/CAN sockets, no -lsocket
+  - LNX-PERIODIC-SLEEP     # flusher thread sleep(1) loop
+  - LNX-PRCTL-CAPS         # User=root in the unit
+  - LNX-LOG
+  - LNX-LIBS
+  - LNX-SYSTEMD
+  - BLD-COMPILER           # CC ?= gcc
+
+samples/vitals-monitor:
+  - LNX-I2C
+  - LNX-EVENTFD
+  - LNX-SYSFS              # thermal zone
+  - LNX-IOCTL              # I2C_SLAVE
+  - LNX-PRCTL-CAPS         # geteuid() != 0, prctl, User=root
+  - LNX-FORK
+  - LNX-PERIODIC-SLEEP     # 50 Hz nanosleep loop
+  - LNX-SHM
+  - LNX-LOG
+  - LNX-LIBS               # rt
+  - LNX-SYSTEMD            # unit + cron watchdog script
+  - BLD-COMPILER           # -march=native, Linux-only CMAKE_SYSTEM_NAME check

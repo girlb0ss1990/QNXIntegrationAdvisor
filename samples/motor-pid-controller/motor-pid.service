@@ -1,0 +1,15 @@
+[Unit]
+Description=Motor PID controller (1 kHz)
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/motor_pid /etc/motor-pid/gains.conf
+Restart=always
+RestartSec=1
+CPUSchedulingPolicy=fifo
+CPUSchedulingPriority=80
+WatchdogSec=2
+
+[Install]
+WantedBy=multi-user.target

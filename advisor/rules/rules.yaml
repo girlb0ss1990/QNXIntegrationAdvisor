@@ -1,0 +1,886 @@
+# QNX Integration Advisor rule DB (corrected for QNX SDP 8.0, spec v2.0 section 6.4).
+#
+# Field reference
+#   match.includes        system headers that trigger the rule (#include <...>)
+#   match.calls           call expressions that trigger the rule
+#   match.strings         regexes applied to string literals
+#   match.link_libs       libraries named in build files (-lfoo, target_link_libraries)
+#   match.build_flags     regexes applied to compiler flags in build files
+#   match.files           glob patterns for config files (systemd units, scripts)
+#   match.condition       extra matcher logic implemented in matcher.py
+#   availability_check    symbols/headers/libraries looked up in the local sysroot index;
+#                         the result picks severity_if_missing / severity_if_available
+#   expected_on_qnx       fallback when no SDP is installed (report is labelled unverified)
+#   severity              fixed severity for design rules without an availability check
+#   qnx_alternatives      every API listed here is checked by `make rules-validate`
+#
+# All prose here is original. No QNX documentation text is copied.
+
+- id: LNX-EPOLL
+  title: epoll event loop
+  match:
+    includes: ["sys/epoll.h"]
+    calls: ["epoll_create", "epoll_create1", "epoll_ctl", "epoll_wait", "epoll_pwait"]
+  availability_check: { symbols: ["epoll_wait"], headers: ["sys/epoll.h"] }
+  expected_on_qnx: missing
+  severity_if_missing: blocker
+  severity_if_available: low
+  guidance: >-
+    epoll is a Linux-only readiness API. On QNX use POSIX poll()/select() for the
+    lowest-effort port, or restructure the loop around a channel so I/O readiness
+    (ionotify), timers and IPC all arrive as prioritized pulses on one receive call.
+  qnx_alternatives:
+    - kind: posix
+      apis: ["poll", "select"]
+      note: "Lowest effort and portable. Keeps the existing loop shape."
+    - kind: qnx_native
+      apis: ["ChannelCreate", "MsgReceivePulse", "ionotify", "pulse_attach"]
+      note: "One receive loop for I/O readiness, timers and IPC, served in priority order."
+  feature_tags: ["channels_pulses"]
+  docs_keywords: ["ionotify", "MsgReceivePulse", "poll"]
+  improvement:
+    dimension: determinism_latency
+    limitation: >-
+      The epoll loop treats every ready descriptor equally; a burst on one fd delays
+      the periodic work handled by the same loop.
+    qnx: >-
+      A channel-based loop receives pulses in priority order, so the control-timer
+      pulse can be given a higher priority than configuration or telemetry events.
+  step:
+    title: Replace the epoll loop
+    category: api_migration
+    effort: M
+    explanation: >-
+      Start with poll() so the code builds and runs on QNX. Once it works, consider
+      moving to a channel + pulse loop (see the resource-manager step) where each event
+      source has its own pulse code and priority.
+    before: |
+      int ep = epoll_create1(0);
+      struct epoll_event ev = { .events = EPOLLIN, .data.fd = tfd };
+      epoll_ctl(ep, EPOLL_CTL_ADD, tfd, &ev);
+      int n = epoll_wait(ep, events, 4, -1);
+    after: |
+      #include <poll.h>
+
+      struct pollfd pfd[2] = {
+          { .fd = tfd, .events = POLLIN },
+          { .fd = cfd, .events = POLLIN },
+      };
+      int n = poll(pfd, 2, -1);
+      if (n > 0 && (pfd[0].revents & POLLIN)) {
+          /* periodic work */
+      }
+    verify: "qcc -Vgcc_ntox86_64 -fsyntax-only src/main.c"
+
+- id: LNX-EVENTFD
+  title: eventfd notifier
+  match:
+    includes: ["sys/eventfd.h"]
+    calls: ["eventfd", "eventfd_read", "eventfd_write"]
+  availability_check: { symbols: ["eventfd"], headers: ["sys/eventfd.h"] }
+  expected_on_qnx: missing
+  severity_if_missing: high
+  severity_if_available: info
+  guidance: >-
+    eventfd is used here as a thread-to-loop wake-up. On QNX a pulse sent to the
+    loop's channel does the same job without a file descriptor, and carries a code and
+    a value. A pipe is the portable fallback.
+  qnx_alternatives:
+    - kind: qnx_native
+      apis: ["MsgSendPulse", "MsgDeliverEvent", "SIGEV_PULSE_INIT", "MsgReceivePulse"]
+      note: "Pulses: small, non-blocking, priority-carrying notifications."
+    - kind: posix
+      apis: ["pipe", "write", "read"]
+      note: "Portable fallback; works with poll()."
+  feature_tags: ["channels_pulses"]
+  improvement:
+    dimension: ipc_efficiency
+    limitation: >-
+      An eventfd wake-up carries no payload and no priority; the receiver must read
+      shared state separately to learn what happened.
+    qnx: >-
+      A pulse carries an 8-bit code and a 32-bit value plus the sender's priority, so
+      the receiver knows what happened and the scheduler orders the work correctly.
+  step:
+    title: Turn eventfd wake-ups into pulses
+    category: api_migration
+    effort: S
+    explanation: >-
+      Create the notifier with the qnx_compat.h shim from the porting kit. On QNX it
+      sends a pulse to the loop's channel; elsewhere it falls back to a pipe.
+    before: |
+      int efd = eventfd(0, EFD_NONBLOCK);
+      uint64_t one = 1;
+      write(efd, &one, sizeof one);
+    after: |
+      #include "qnx_compat.h"
+
+      qnx_notifier_t n;
+      qnx_notifier_init(&n, chid, PULSE_CODE_FLUSH);
+      qnx_notifier_signal(&n, 1);        /* MsgSendPulse under the hood */
+    verify: "qcc -Vgcc_ntox86_64 -fsyntax-only -Iinclude src/main.c"
+
+- id: LNX-TIMERFD
+  title: timerfd periodic timer
+  match:
+    includes: ["sys/timerfd.h"]
+    calls: ["timerfd_create", "timerfd_settime", "timerfd_gettime"]
+  availability_check: { symbols: ["timerfd_create"], headers: ["sys/timerfd.h"] }
+  expected_on_qnx: missing
+  severity_if_missing: blocker
+  severity_if_available: low
+  guidance: >-
+    Use a POSIX timer created with timer_create(CLOCK_MONOTONIC) whose sigevent is a
+    pulse (SIGEV_PULSE_INIT) delivered to a channel. The receiving thread blocks in
+    MsgReceivePulse() and wakes at the pulse priority you choose. For a simple loop,
+    clock_nanosleep(TIMER_ABSTIME) avoids drift.
+  qnx_alternatives:
+    - kind: qnx_native
+      apis: ["timer_create", "timer_settime", "SIGEV_PULSE_INIT", "MsgReceivePulse", "ChannelCreate", "ConnectAttach"]
+      note: "Periodic pulse timer: priority-aware, no fd needed."
+    - kind: posix
+      apis: ["clock_nanosleep"]
+      note: "Absolute-time sleep loop; simplest drift-free option."
+  feature_tags: ["channels_pulses", "sporadic_scheduling"]
+  improvement:
+    dimension: determinism_latency
+    limitation: >-
+      The control loop's timing relies on a Linux-specific timerfd read inside a
+      general-purpose event loop.
+    qnx: >-
+      A timer that delivers a pulse wakes the control thread directly at a chosen
+      priority. Wake-up lateness can be measured on the target with the agent's
+      timer benchmark.
+  step:
+    title: Replace timerfd with a pulse-delivering POSIX timer
+    category: scheduling_timing
+    effort: M
+    explanation: >-
+      The kit's qnx_compat.h provides qnx_periodic_timer_create()/qnx_periodic_timer_wait()
+      built on timer_create() + SIGEV_PULSE_INIT + MsgReceivePulse(). Keep the
+      control-loop body unchanged.
+    before: |
+      int tfd = timerfd_create(CLOCK_MONOTONIC, 0);
+      timerfd_settime(tfd, 0, &its, NULL);
+      read(tfd, &expirations, sizeof expirations);
+    after: |
+      #include "qnx_compat.h"
+
+      qnx_periodic_timer_t t;
+      if (qnx_periodic_timer_create(&t, 1000000 /* ns */, 30 /* pulse prio */) != 0)
+          return 1;
+      for (;;) {
+          if (qnx_periodic_timer_wait(&t) != 0)
+              break;
+          /* control-loop body */
+      }
+    verify: "qcc -Vgcc_ntox86_64 -fsyntax-only -Iinclude src/main.c"
+
+- id: LNX-PERIODIC-SLEEP
+  title: sleep-based periodic loop
+  match:
+    calls: ["usleep", "nanosleep", "sleep"]
+    condition: periodic_sleep_loop
+  severity: low
+  guidance: >-
+    A relative sleep inside a loop drifts by the loop body's run time. Use
+    clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, ...) with a running deadline, or a
+    pulse timer when the thread also needs to receive other events.
+  qnx_alternatives:
+    - kind: posix
+      apis: ["clock_nanosleep", "clock_gettime"]
+      note: "Absolute deadlines remove cumulative drift."
+    - kind: qnx_native
+      apis: ["timer_create", "SIGEV_PULSE_INIT", "MsgReceivePulse"]
+      note: "Pulse timer when the loop also receives messages."
+  feature_tags: ["channels_pulses"]
+  improvement:
+    dimension: determinism_latency
+    limitation: "Relative sleeps accumulate drift equal to the loop body's execution time."
+    qnx: "Absolute-deadline sleeps or pulse timers keep the period fixed."
+  step:
+    title: Use absolute-deadline sleeps for periodic work
+    category: scheduling_timing
+    effort: S
+    explanation: "Replace relative sleeps in periodic loops with clock_nanosleep(TIMER_ABSTIME)."
+    before: |
+      for (;;) {
+          do_work();
+          nanosleep(&period, NULL);
+      }
+    after: |
+      struct timespec next;
+      clock_gettime(CLOCK_MONOTONIC, &next);
+      for (;;) {
+          do_work();
+          next.tv_nsec += PERIOD_NS;
+          while (next.tv_nsec >= 1000000000L) { next.tv_nsec -= 1000000000L; next.tv_sec++; }
+          clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &next, NULL);
+      }
+    verify: "qcc -Vgcc_ntox86_64 -fsyntax-only src/main.c"
+
+- id: LNX-SIGNALFD
+  title: signalfd
+  match:
+    includes: ["sys/signalfd.h"]
+    calls: ["signalfd"]
+  availability_check: { symbols: ["signalfd"], headers: ["sys/signalfd.h"] }
+  expected_on_qnx: missing
+  severity_if_missing: high
+  severity_if_available: info
+  guidance: >-
+    Block the signals in all threads and handle them in a dedicated thread with
+    sigwaitinfo(), which then notifies the main loop (for example with a pulse).
+  qnx_alternatives:
+    - kind: posix
+      apis: ["sigwaitinfo", "pthread_sigmask"]
+      note: "Dedicated signal thread; portable."
+    - kind: qnx_native
+      apis: ["MsgSendPulse"]
+      note: "Signal thread forwards a pulse to the main channel."
+  feature_tags: ["channels_pulses"]
+  improvement:
+    dimension: maintainability_portability
+    limitation: "Shutdown handling depends on a Linux-only fd type."
+    qnx: "A sigwaitinfo() thread is portable and integrates with a pulse-driven loop."
+  step:
+    title: Handle signals in a sigwaitinfo() thread
+    category: api_migration
+    effort: S
+    explanation: "Block SIGTERM/SIGINT before creating threads, then wait for them in one thread."
+    before: |
+      int sfd = signalfd(-1, &mask, SFD_NONBLOCK);
+    after: |
+      static void *signal_thread(void *arg)
+      {
+          sigset_t *mask = arg;
+          siginfo_t si;
+          if (sigwaitinfo(mask, &si) > 0)
+              MsgSendPulse(main_coid, -1, PULSE_CODE_SHUTDOWN, si.si_signo);
+          return NULL;
+      }
+      /* in main(): pthread_sigmask(SIG_BLOCK, &mask, NULL); pthread_create(...) */
+    verify: "qcc -Vgcc_ntox86_64 -fsyntax-only src/main.c"
+
+- id: LNX-INOTIFY
+  title: inotify file watching
+  match:
+    includes: ["sys/inotify.h"]
+    calls: ["inotify_init", "inotify_init1", "inotify_add_watch", "inotify_rm_watch"]
+  availability_check: { symbols: ["inotify_add_watch"], headers: ["sys/inotify.h"] }
+  expected_on_qnx: available
+  expected_lib: fsnotify
+  severity_if_missing: high
+  severity_if_available: low
+  guidance: >-
+    QNX 8.0 provides <sys/inotify.h>. Link with -lfsnotify and make sure the fsevmgr
+    service runs on the target. This is a build-flag change, not a blocker.
+  qnx_alternatives:
+    - kind: build
+      apis: ["inotify_add_watch"]
+      note: "Add -lfsnotify; start fsevmgr in the target image."
+  feature_tags: []
+  step:
+    title: Link inotify users with libfsnotify
+    category: toolchain_build
+    effort: S
+    explanation: "Add fsnotify to the QNX link libraries (the kit's qnx8.cmake snippet does this)."
+    before: |
+      target_link_libraries(app pthread rt)
+    after: |
+      if(QNX)
+        target_link_libraries(app fsnotify)
+      endif()
+    verify: "pidin -p fsevmgr  # on the target: fsevmgr must be running"
+
+- id: LNX-SOCKLIB
+  title: BSD sockets without libsocket
+  match:
+    calls: ["socket", "bind", "connect", "accept", "listen", "getaddrinfo", "setsockopt", "recvfrom", "sendto"]
+    condition: socket_lib_not_linked
+  availability_check: { symbols: ["socket"] }
+  expected_on_qnx: available
+  expected_lib: socket
+  severity_if_missing: high
+  severity_if_available: medium
+  guidance: >-
+    On QNX the socket API lives in libsocket, not libc. Add -lsocket to the link line
+    and make sure the io-sock network manager runs on the target.
+  qnx_alternatives:
+    - kind: build
+      apis: ["socket"]
+      note: "Link with -lsocket."
+  feature_tags: []
+  step:
+    title: Link socket users with libsocket
+    category: toolchain_build
+    effort: S
+    explanation: "Add socket to the QNX link libraries."
+    before: |
+      LDLIBS = -lpthread -lrt
+    after: |
+      ifeq ($(shell uname -s),QNX)
+      LDLIBS += -lsocket
+      endif
+    verify: "ntox86_64-nm -D $QNX_TARGET/x86_64/lib/libsocket.so | grep ' T socket$'"
+
+- id: LNX-LIBS
+  title: Linux-only link libraries
+  match:
+    link_libs: ["pthread", "rt", "dl"]
+  availability_check: { libraries: ["pthread", "rt", "dl"] }
+  expected_on_qnx: missing
+  severity_if_missing: medium
+  severity_if_available: info
+  guidance: >-
+    On QNX the pthread, real-time and dynamic-loading functions are part of libc. Drop
+    a -l flag only if that library is missing from the sysroot (the audit checks this).
+    In CMake prefer find_package(Threads) + Threads::Threads.
+  qnx_alternatives:
+    - kind: build
+      apis: ["pthread_create", "timer_create", "dlopen"]
+      note: "Provided by libc on QNX."
+  feature_tags: []
+  step:
+    title: Remove link libraries that QNX folds into libc
+    category: toolchain_build
+    effort: S
+    explanation: "Use Threads::Threads and drop -lrt/-ldl where the sysroot has no such library."
+    before: |
+      target_link_libraries(app pthread rt m)
+    after: |
+      find_package(Threads REQUIRED)
+      target_link_libraries(app Threads::Threads m)
+    verify: "cmake -DCMAKE_TOOLCHAIN_FILE=cmake/qnx8-toolchain.cmake -B build-qnx && cmake --build build-qnx"
+
+- id: LNX-IOCTL
+  title: ioctl on device descriptors
+  match:
+    calls: ["ioctl"]
+  severity: medium
+  guidance: >-
+    QNX offers ioctl() as a wrapper over devctl() for common requests, but
+    driver-specific requests must be rewritten against the QNX driver's DCMD_* set.
+    Wrap device access in a small hardware-abstraction layer (HAL) so the Linux and QNX
+    implementations can live side by side.
+  qnx_alternatives:
+    - kind: qnx_native
+      apis: ["devctl"]
+      note: "Driver-specific DCMD_* commands; check the driver for your board."
+    - kind: design
+      apis: []
+      note: "Introduce a HAL interface around device access."
+  feature_tags: ["resource_manager"]
+  improvement:
+    dimension: maintainability_portability
+    limitation: "Device control calls are scattered through application code and tied to Linux request codes."
+    qnx: "A HAL with a devctl()-based QNX backend isolates board-specific commands in one file."
+  step:
+    title: Wrap device control in a HAL
+    category: api_migration
+    effort: M
+    explanation: "Move ioctl() calls behind functions such as hal_set_line(); implement the QNX side with devctl()."
+    before: |
+      ioctl(fd, TIOCMBIS, &bits);
+    after: |
+      /* hal.h */
+      int hal_serial_set_dtr(int fd, int on);
+
+      /* hal_qnx.c */
+      #include <devctl.h>
+      #include <sys/dcmd_chr.h>
+      int hal_serial_set_dtr(int fd, int on)
+      {
+          int bits = on ? (_SERCTL_DTR | _SERCTL_DTR_CHG) : _SERCTL_DTR_CHG;
+          return devctl(fd, DCMD_CHR_SERCTL, &bits, sizeof bits, NULL);
+      }
+    verify: "qcc -Vgcc_ntox86_64 -fsyntax-only src/hal_qnx.c"
+
+- id: LNX-SOCKETCAN
+  title: SocketCAN
+  match:
+    includes: ["linux/can.h", "linux/can/raw.h"]
+    calls: []
+    strings: ['\bcan[0-9]\b']
+    tokens: ["AF_CAN", "PF_CAN", "CAN_RAW"]
+  availability_check: { headers: ["linux/can.h"] }
+  expected_on_qnx: missing
+  severity_if_missing: blocker
+  severity_if_available: medium
+  guidance: >-
+    QNX CAN drivers are resource managers (for example /dev/can1/rx0) controlled through
+    devctl(); the command set depends on the driver for your board. There is no 1:1
+    SocketCAN replacement. Put CAN access behind a HAL interface and add a QNX backend.
+    Check that a CAN driver exists for your target board first.
+  qnx_alternatives:
+    - kind: qnx_native
+      apis: ["open", "read", "devctl"]
+      note: "Driver-specific DCMD_* commands on the CAN resource manager."
+    - kind: design
+      apis: []
+      note: "Generate a CAN HAL interface with a QNX implementation stub."
+  feature_tags: ["resource_manager"]
+  improvement:
+    dimension: maintainability_portability
+    limitation: "CAN I/O is written directly against the Linux SocketCAN socket family."
+    qnx: "A CAN HAL keeps protocol logic portable; the QNX backend talks to the board's CAN resource manager."
+  step:
+    title: Introduce a CAN HAL with a QNX backend stub
+    category: api_migration
+    effort: L
+    explanation: >-
+      Define can_hal_open/can_hal_read/can_hal_close. Keep the SocketCAN backend for
+      Linux. The QNX backend opens the CAN driver's device path and uses the driver's
+      devctl commands; fill in the DCMD_* values from the driver you deploy.
+    before: |
+      int s = socket(PF_CAN, SOCK_RAW, CAN_RAW);
+      bind(s, (struct sockaddr *)&addr, sizeof addr);
+      read(s, &frame, sizeof frame);
+    after: |
+      /* can_hal.h */
+      typedef struct { uint32_t id; uint8_t dlc; uint8_t data[8]; } can_hal_frame_t;
+      int  can_hal_open(const char *channel);           /* "can0" or "/dev/can1/rx0" */
+      int  can_hal_read(int h, can_hal_frame_t *f);     /* blocking read */
+      void can_hal_close(int h);
+    verify: "qcc -Vgcc_ntox86_64 -fsyntax-only src/can_hal_qnx.c"
+
+- id: LNX-I2C
+  title: Linux i2c-dev
+  match:
+    includes: ["linux/i2c-dev.h", "linux/i2c.h"]
+    strings: ['/dev/i2c-']
+    tokens: ["I2C_SLAVE", "I2C_RDWR"]
+  availability_check: { headers: ["linux/i2c-dev.h"] }
+  expected_on_qnx: missing
+  severity_if_missing: blocker
+  severity_if_available: medium
+  guidance: >-
+    QNX I2C controllers are served by board-specific resource-manager drivers controlled
+    with devctl() (see <hw/i2c.h> in your SDP for the command set). Wrap sensor access in
+    a HAL and implement the QNX side against your board's I2C driver.
+  qnx_alternatives:
+    - kind: qnx_native
+      apis: ["devctl"]
+      note: "Board-specific I2C resource manager."
+    - kind: design
+      apis: []
+      note: "Sensor HAL."
+  feature_tags: ["resource_manager"]
+  improvement:
+    dimension: maintainability_portability
+    limitation: "Sensor reads use Linux i2c-dev request codes directly."
+    qnx: "A sensor HAL isolates the bus driver; the QNX backend uses the board's I2C resource manager."
+  step:
+    title: Put I2C access behind a sensor HAL
+    category: api_migration
+    effort: M
+    explanation: "Create sensor_hal_read(); move the i2c-dev code to sensor_hal_linux.c and add sensor_hal_qnx.c."
+    before: |
+      int fd = open("/dev/i2c-1", O_RDWR);
+      ioctl(fd, I2C_SLAVE, 0x57);
+    after: |
+      /* sensor_hal.h */
+      int sensor_hal_open(int bus, uint8_t addr);
+      int sensor_hal_read_regs(int h, uint8_t reg, uint8_t *buf, size_t len);
+    verify: "qcc -Vgcc_ntox86_64 -fsyntax-only src/sensor_hal_qnx.c"
+
+- id: LNX-SPI
+  title: Linux spidev
+  match:
+    includes: ["linux/spi/spidev.h"]
+    strings: ['/dev/spidev']
+  availability_check: { headers: ["linux/spi/spidev.h"] }
+  expected_on_qnx: missing
+  severity_if_missing: blocker
+  severity_if_available: medium
+  guidance: >-
+    QNX SPI controllers are board-specific resource-manager drivers controlled with
+    devctl(). Wrap SPI transfers in a HAL and implement the QNX backend for your board.
+  qnx_alternatives:
+    - kind: qnx_native
+      apis: ["devctl"]
+      note: "Board-specific SPI resource manager."
+  feature_tags: ["resource_manager"]
+  step:
+    title: Put SPI access behind a HAL
+    category: api_migration
+    effort: M
+    explanation: "Create spi_hal_transfer() with Linux and QNX implementations."
+    verify: "qcc -Vgcc_ntox86_64 -fsyntax-only src/spi_hal_qnx.c"
+
+- id: LNX-PRCTL-CAPS
+  title: Root-only daemon / Linux capabilities
+  match:
+    includes: ["sys/prctl.h", "sys/capability.h"]
+    calls: ["prctl", "capset", "capget", "cap_set_proc"]
+    condition: requires_root
+  severity: high
+  guidance: >-
+    QNX splits root's power into abilities. Start as root only long enough to do the
+    privileged setup (for example registering a path name), then call procmgr_ability()
+    to keep just the abilities you need, lock the rest, and switch to an unprivileged
+    user. A secpol policy can express the same thing declaratively.
+  qnx_alternatives:
+    - kind: qnx_native
+      apis: ["procmgr_ability", "setuid", "setgid"]
+      note: "Retain only named abilities, then drop root."
+  feature_tags: ["procmgr_ability", "secpol"]
+  improvement:
+    dimension: security_least_privilege
+    limitation: "The process runs with full root privileges for its whole lifetime."
+    qnx: "procmgr_ability() keeps only the abilities the service needs and locks them, so a compromise does not yield root."
+  step:
+    title: Drop privileges with procmgr_ability()
+    category: reliability_security
+    effort: M
+    explanation: >-
+      After privileged setup, allow the specific abilities the service still needs for
+      the non-root domain, deny and lock everything else, then setuid() to a service user.
+    before: |
+      if (geteuid() != 0) { fprintf(stderr, "must run as root\n"); return 1; }
+      prctl(PR_SET_KEEPCAPS, 1, 0, 0, 0);
+    after: |
+      #include <sys/procmgr.h>
+
+      /* after resmgr_attach()/open() of privileged resources: */
+      if (procmgr_ability(0,
+              PROCMGR_ADN_NONROOT | PROCMGR_AOP_ALLOW | PROCMGR_AOP_LOCK | PROCMGR_AID_PRIORITY,
+              PROCMGR_ADN_NONROOT | PROCMGR_AOP_DENY  | PROCMGR_AOP_LOCK | PROCMGR_AID_EOL) != EOK) {
+          return 1;
+      }
+      if (setgid(SERVICE_GID) == -1 || setuid(SERVICE_UID) == -1)
+          return 1;
+    verify: "pidin -p <service> arg  # on target: confirm non-root uid"
+
+- id: LNX-AFFINITY
+  title: sched_setaffinity
+  match:
+    calls: ["sched_setaffinity", "pthread_setaffinity_np", "CPU_SET"]
+  availability_check: { symbols: ["sched_setaffinity"] }
+  expected_on_qnx: missing
+  severity_if_missing: medium
+  severity_if_available: low
+  guidance: >-
+    On QNX pin threads with run-masks: ThreadCtl(_NTO_TCTL_RUNMASK_GET_AND_SET_INHERIT, ...)
+    sets the calling thread's mask and the mask its children inherit.
+  qnx_alternatives:
+    - kind: qnx_native
+      apis: ["ThreadCtl", "_NTO_TCTL_RUNMASK_GET_AND_SET_INHERIT", "RMSK_SET"]
+      note: "Run-mask + inherit-mask in one call."
+  feature_tags: ["runmask_affinity"]
+  improvement:
+    dimension: determinism_latency
+    limitation: "CPU pinning uses a glibc-specific API."
+    qnx: "Run-masks pin the control thread and its children to a reserved core."
+  step:
+    title: Pin the control thread with a run-mask
+    category: scheduling_timing
+    effort: S
+    explanation: "Replace sched_setaffinity() with ThreadCtl() and a run-mask."
+    before: |
+      CPU_ZERO(&set); CPU_SET(1, &set);
+      sched_setaffinity(0, sizeof set, &set);
+    after: |
+      #include <sys/neutrino.h>
+
+      unsigned mask[2] = { 1u << 1, 1u << 1 };   /* run mask, inherit mask: CPU 1 */
+      if (ThreadCtl(_NTO_TCTL_RUNMASK_GET_AND_SET_INHERIT, mask) == -1)
+          perror("ThreadCtl runmask");
+    verify: "pidin -p <service> -F '%a %b %N %i'  # on target"
+
+- id: LNX-PRIO-INV
+  title: Mutex without priority inheritance in mixed-priority code
+  match:
+    calls: ["pthread_mutex_init", "PTHREAD_MUTEX_INITIALIZER"]
+    condition: default_mutex_mixed_priority
+  severity: medium
+  guidance: >-
+    A mutex shared between threads of different priorities should use
+    PTHREAD_PRIO_INHERIT so a low-priority holder is boosted while a high-priority thread
+    waits. QNX message passing already applies client-priority inheritance by default,
+    which is one reason to move shared state behind a resource manager.
+  qnx_alternatives:
+    - kind: posix
+      apis: ["pthread_mutexattr_init", "pthread_mutexattr_setprotocol", "PTHREAD_PRIO_INHERIT"]
+      note: "Explicit priority inheritance on the shared mutex."
+    - kind: qnx_native
+      apis: ["MsgSend", "MsgReceive"]
+      note: "Message passing inherits the client's priority."
+  feature_tags: ["priority_inheritance"]
+  improvement:
+    dimension: determinism_latency
+    limitation: >-
+      A high-priority control thread and a low-priority thread share a default mutex. If
+      the low-priority holder is preempted, the control thread waits indefinitely
+      (priority inversion).
+    qnx: >-
+      With PTHREAD_PRIO_INHERIT the holder runs at the waiter's priority until it
+      unlocks. The agent's timer benchmark under load shows the effect on wake-up lateness.
+  step:
+    title: Enable priority inheritance on shared mutexes
+    category: scheduling_timing
+    effort: S
+    explanation: "Initialize the mutex with a PTHREAD_PRIO_INHERIT attribute."
+    before: |
+      pthread_mutex_init(&gains_lock, NULL);
+    after: |
+      pthread_mutexattr_t ma;
+      pthread_mutexattr_init(&ma);
+      pthread_mutexattr_setprotocol(&ma, PTHREAD_PRIO_INHERIT);
+      pthread_mutex_init(&gains_lock, &ma);
+      pthread_mutexattr_destroy(&ma);
+    verify: "advisorctl bench-timer --load 4  # compare lateness before/after"
+
+- id: LNX-CPU-BUDGET
+  title: Background threads next to a real-time loop
+  match:
+    calls: ["pthread_setschedparam", "sched_setscheduler", "SCHED_FIFO"]
+    condition: rt_thread_with_workers
+  severity: low
+  guidance: >-
+    Adaptive partitioning (APS) is not part of QNX SDP 8.0. To bound a background
+    thread's CPU use, run it under SCHED_SPORADIC (budget + replenishment period), watch
+    its per-thread CPU-time clock with a timer to detect overruns, pin it away from the
+    control core with a run-mask, or use the QNX Hypervisor for hard isolation.
+  qnx_alternatives:
+    - kind: posix
+      apis: ["pthread_attr_setschedpolicy", "SCHED_SPORADIC", "pthread_getcpuclockid", "clock_gettime"]
+      note: "Sporadic scheduling plus CPU-time monitoring."
+    - kind: qnx_native
+      apis: ["ClockId", "ThreadCtl"]
+      note: "Per-thread CPU-time clock and run-masks."
+  feature_tags: ["sporadic_scheduling", "cpu_time_budget_monitoring", "runmask_affinity"]
+  improvement:
+    dimension: determinism_latency
+    limitation: "Background threads have no CPU budget; a runaway worker can starve lower-priority work and delay the loop."
+    qnx: "SCHED_SPORADIC caps a worker's high-priority execution per period, and a CPU-time clock lets the service detect overruns."
+  step:
+    title: Bound background threads with SCHED_SPORADIC
+    category: scheduling_timing
+    effort: M
+    explanation: "Give the telemetry/worker thread a sporadic budget and low replenishment priority."
+    after: |
+      struct sched_param p = {0};
+      p.sched_priority = 20;                               /* normal priority */
+      p.sched_ss_low_priority = 8;                         /* after budget runs out */
+      p.sched_ss_max_repl = 4;
+      p.sched_ss_repl_period.tv_nsec = 100 * 1000 * 1000;  /* 100 ms */
+      p.sched_ss_init_budget.tv_nsec = 10 * 1000 * 1000;   /* 10 ms per period */
+      pthread_attr_setinheritsched(&attr, PTHREAD_EXPLICIT_SCHED);
+      pthread_attr_setschedpolicy(&attr, SCHED_SPORADIC);
+      pthread_attr_setschedparam(&attr, &p);
+    verify: "pidin -p <service> -F '%a %b %p %i'  # policy column shows sporadic"
+
+- id: LNX-SYSTEMD
+  title: systemd unit / watchdog script
+  match:
+    files: ["*.service", "*watchdog*.sh"]
+  severity: medium
+  guidance: >-
+    QNX targets have no systemd. Start the service from the image's startup script (or
+    SLM where available), and use HAM (High Availability Manager) for restart policies:
+    the service attaches with ham_attach_self() and sends ham_heartbeat(); HAM restarts
+    it when heartbeats stop or it dies. Use only HAM APIs present in your sysroot
+    (several *_control() calls were removed in 8.0.1).
+  qnx_alternatives:
+    - kind: qnx_native
+      apis: ["ham_attach_self", "ham_heartbeat", "ham_detach_self"]
+      note: "Heartbeat-based supervision with restart actions."
+  feature_tags: ["ham"]
+  improvement:
+    dimension: fault_isolation_recovery
+    limitation: "Restart policy lives in systemd or a cron script, which QNX targets do not have."
+    qnx: "HAM supervises the process from a separate address space and restarts it on death or missed heartbeats."
+  step:
+    title: Replace systemd supervision with startup script + HAM
+    category: reliability_security
+    effort: M
+    explanation: "Launch from the image startup script and add a HAM heartbeat."
+    before: |
+      [Service]
+      Restart=always
+      WatchdogSec=2
+    after: |
+      #include <ha/ham.h>
+
+      ham_entity_t *e = ham_attach_self("motor_pid", 500000000ULL /* 0.5 s */, 4, 8, 0);
+      /* in the loop */
+      ham_heartbeat();
+    verify: "ls /proc/ham  # on target, HAM running"
+
+- id: LNX-PROCFS
+  title: Linux /proc paths
+  match:
+    strings: ['^/proc/(self|[0-9]+|\{pid\}|%d)/(stat|statm|status|maps|fd|cmdline)', '^/proc/(meminfo|cpuinfo|loadavg)']
+  severity: medium
+  guidance: >-
+    QNX's /proc is different: per-process information is read with devctl(DCMD_PROC_*)
+    on /proc/<pid>/as. Free memory can be read from the size of /proc itself.
+  qnx_alternatives:
+    - kind: qnx_native
+      apis: ["devctl", "DCMD_PROC_INFO", "DCMD_PROC_MAPINFO"]
+      note: "Query process information through the proc manager."
+  feature_tags: []
+  step:
+    title: Replace Linux /proc parsing
+    category: api_migration
+    effort: S
+    explanation: "Use DCMD_PROC_INFO on /proc/self/as instead of parsing text files."
+    before: |
+      FILE *f = fopen("/proc/self/statm", "r");
+    after: |
+      #include <sys/procfs.h>
+      #include <devctl.h>
+
+      int fd = open("/proc/self/as", O_RDONLY);
+      procfs_info info;
+      if (fd >= 0 && devctl(fd, DCMD_PROC_INFO, &info, sizeof info, NULL) == EOK) {
+          /* info.pid, info.num_threads, ... */
+      }
+    verify: "qcc -Vgcc_ntox86_64 -fsyntax-only src/main.c"
+
+- id: LNX-SYSFS
+  title: Linux /sys paths
+  match:
+    strings: ['^/sys/']
+  severity: high
+  guidance: >-
+    There is no sysfs on QNX. PWM, GPIO and thermal data come from board-specific
+    resource managers. Hide these behind a HAL and implement the QNX backend for your
+    board's drivers.
+  qnx_alternatives:
+    - kind: design
+      apis: []
+      note: "HAL around board I/O."
+    - kind: qnx_native
+      apis: ["devctl"]
+      note: "Board driver commands."
+  feature_tags: ["resource_manager"]
+  step:
+    title: Remove sysfs dependencies
+    category: api_migration
+    effort: M
+    explanation: "Wrap each sysfs access (PWM, thermal, GPIO) in a HAL function."
+    verify: "grep -rn '\"/sys/' src/  # should be empty outside hal_linux.c"
+
+- id: LNX-FORK
+  title: fork() in a multithreaded program
+  match:
+    calls: ["fork", "vfork"]
+  severity: medium
+  guidance: >-
+    posix_spawn() is the recommended way to start processes on QNX. fork() in a
+    multithreaded program is unsafe under POSIX on any OS, because only the calling
+    thread is copied and locks held by other threads stay locked in the child.
+  qnx_alternatives:
+    - kind: posix
+      apis: ["posix_spawn", "posix_spawnattr_init", "waitpid"]
+      note: "Create the child in one call; no copy of the parent's address space."
+  feature_tags: []
+  improvement:
+    dimension: fault_isolation_recovery
+    limitation: "Child processes are created with fork() from a threaded parent."
+    qnx: "posix_spawn() creates the child directly and can set its scheduling policy and priority."
+  step:
+    title: Replace fork()/exec with posix_spawn()
+    category: api_migration
+    effort: S
+    explanation: "Use posix_spawn(); for daemonizing, let the startup script background the process instead."
+    before: |
+      pid_t pid = fork();
+      if (pid == 0) { execl(path, path, arg, (char *)NULL); _exit(127); }
+    after: |
+      #include <spawn.h>
+
+      extern char **environ;
+      pid_t pid;
+      char *const argv[] = { (char *)path, arg, NULL };
+      int rc = posix_spawn(&pid, path, NULL, NULL, argv, environ);
+    verify: "qcc -Vgcc_ntox86_64 -fsyntax-only src/main.c"
+
+- id: LNX-LOG
+  title: syslog logging
+  match:
+    calls: ["syslog", "openlog", "vsyslog"]
+  severity: info
+  guidance: >-
+    syslog() works on QNX. slog2 (slog2_register, slog2f) is recommended for
+    structured, low-overhead logs that you can read with slog2info.
+  qnx_alternatives:
+    - kind: qnx_native
+      apis: ["slog2_register", "slog2f", "slog2_set_default_buffer"]
+      note: "Ring-buffer logging in shared memory."
+  feature_tags: ["slog2"]
+  improvement:
+    dimension: maintainability_portability
+    limitation: "Logging goes through syslog, which formats and sends each message to a daemon."
+    qnx: "slog2 writes to a shared-memory buffer with per-buffer verbosity, viewable with slog2info."
+  step:
+    title: Optionally switch to slog2
+    category: reliability_security
+    effort: S
+    explanation: "Register a slog2 buffer set at start-up and route log calls through slog2f()."
+    after: |
+      #include <sys/slog2.h>
+
+      slog2_buffer_set_config_t cfg = {0};
+      slog2_buffer_t buf;
+      cfg.buffer_set_name = "motor_pid";
+      cfg.num_buffers = 1;
+      cfg.verbosity_level = SLOG2_INFO;
+      cfg.buffer_config[0].buffer_name = "main";
+      cfg.buffer_config[0].num_pages = 4;
+      if (slog2_register(&cfg, &buf, 0) == 0)
+          slog2_set_default_buffer(buf);
+      slog2f(NULL, 0, SLOG2_INFO, "started, period=%d us", 1000);
+    verify: "slog2info -b motor_pid  # on target"
+
+- id: LNX-SHM
+  title: POSIX shared memory
+  match:
+    calls: ["shm_open"]
+  severity: info
+  guidance: >-
+    shm_open()/mmap() work on QNX. For memory shared with devices or across a
+    hypervisor boundary, look at typed memory (posix_typed_mem_open). Keep the shared
+    struct layout fixed-size and guard it with a process-shared, priority-inheriting mutex.
+  qnx_alternatives:
+    - kind: posix
+      apis: ["shm_open", "mmap", "posix_typed_mem_open"]
+      note: "POSIX shared memory; typed memory for physical regions."
+  feature_tags: ["typed_shared_memory"]
+  step:
+    title: Check shared-memory synchronization
+    category: reliability_security
+    effort: S
+    explanation: "Use a PTHREAD_PROCESS_SHARED + PTHREAD_PRIO_INHERIT mutex inside the shared region."
+    verify: "ls -l /dev/shmem  # on target"
+
+- id: BLD-COMPILER
+  title: Host-only compiler settings
+  match:
+    build_flags: ['-march=native', '-mtune=native', '\bCMAKE_C_COMPILER\s+gcc\b', '\bCC\s*\??=\s*gcc\b', 'CMAKE_SYSTEM_NAME\s+STREQUAL\s+"Linux"']
+  severity: medium
+  guidance: >-
+    Cross-compile with qcc/q++ and a -V variant (gcc_ntox86_64, gcc_ntoaarch64le). Remove
+    host-only flags such as -march=native and hardcoded gcc, and do not fail the build
+    when CMAKE_SYSTEM_NAME is not Linux. The kit's toolchain file sets all of this.
+  qnx_alternatives:
+    - kind: build
+      apis: []
+      note: "cmake/qnx8-toolchain.cmake from the porting kit."
+  feature_tags: []
+  step:
+    title: Cross-compile with the QNX toolchain file
+    category: toolchain_build
+    effort: S
+    explanation: "Source qnxsdp-env.sh, then configure with the kit's toolchain file."
+    before: |
+      set(CMAKE_C_COMPILER gcc)
+      add_compile_options(-O2 -Wall -march=native)
+    after: |
+      # remove the hardcoded compiler and -march=native, then:
+      #   source ~/qnx800/qnxsdp-env.sh
+      #   cmake -B build-qnx -DCMAKE_TOOLCHAIN_FILE=cmake/qnx8-toolchain.cmake -DQNX_ARCH=x86_64
+      add_compile_options(-O2 -Wall)
+    verify: "cmake -B build-qnx -DCMAKE_TOOLCHAIN_FILE=cmake/qnx8-toolchain.cmake && cmake --build build-qnx"

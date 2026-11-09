@@ -1,0 +1,27 @@
+# Builds the QNX porting-kit binaries for {{ repo_name }}.
+#   source ~/qnx800/qnxsdp-env.sh && make -f Makefile.qnx ARCH=x86_64
+ARCH ?= {{ arch }}
+VARIANT_x86_64    = gcc_ntox86_64
+VARIANT_aarch64le = gcc_ntoaarch64le
+CC      = qcc -V$(VARIANT_$(ARCH))
+CFLAGS  = -O2 -Wall -Wextra -Werror -std=gnu11 -Iinclude -Isrc
+OUT     = build/$(ARCH)
+
+all: $(OUT)/{{ svc }}_resmgr $(OUT)/{{ svc }}ctl $(OUT)/compat_selftest
+
+$(OUT)/{{ svc }}_resmgr: src/qnx_{{ svc }}_resmgr.c src/{{ svc }}_dcmd.h
+	mkdir -p $(OUT)
+	$(CC) $(CFLAGS) -o $@ $<
+
+$(OUT)/{{ svc }}ctl: src/{{ svc }}ctl.c src/{{ svc }}_dcmd.h
+	mkdir -p $(OUT)
+	$(CC) $(CFLAGS) -o $@ $<
+
+$(OUT)/compat_selftest: tests/compat_selftest.c include/qnx_compat.h
+	mkdir -p $(OUT)
+	$(CC) $(CFLAGS) -o $@ $<
+
+clean:
+	rm -rf build
+
+.PHONY: all clean

@@ -1,0 +1,14 @@
+# Advanced / optional: mkifs buildfile fragment for {{ repo_name }}.
+# For QEMU and VMs prefer mkqnximage (target/run-qemu.sh). Merge this fragment into a
+# board buildfile from your BSP if you build a custom image.
+
+[+script] .{{ svc }}-start = {
+{%- if 'fsnotify' in link_libs %}
+    fsevmgr &
+{%- endif %}
+    /proc/boot/{{ svc }}_resmgr -p {{ period_ms }} -u 1000 &
+    waitfor /dev/{{ svc }} 5
+}
+
+[perms=0755] /proc/boot/{{ svc }}_resmgr = build/x86_64/{{ svc }}_resmgr
+[perms=0755] /proc/boot/{{ svc }}ctl = build/x86_64/{{ svc }}ctl

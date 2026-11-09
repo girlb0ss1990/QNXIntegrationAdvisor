@@ -1,0 +1,20 @@
+# Optional secpol policy for qnx-advisor-agent (the declarative equivalent of the
+# procmgr_ability() calls in qnx_advisor_agent.c). Compile with secpolcompile and
+# start the agent with `on -T qnx_advisor_agent_t` in a secpol-enabled image.
+# Check the secpol documentation for your SDP 8.0 patch level for exact syntax.
+
+type qnx_advisor_agent_t;
+
+# Register /dev/advisor and let spawned kit binaries register their own /dev path.
+allow qnx_advisor_agent_t self:ability {
+    pathspace
+    priority
+    setuid
+    setgid
+};
+
+# Children (kit binaries under test) inherit only what they need.
+allow qnx_advisor_agent_t self:ability {
+    pathspace:inherit
+    priority:inherit
+};
