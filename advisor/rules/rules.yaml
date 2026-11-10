@@ -678,35 +678,36 @@
   severity: medium
   guidance: >-
     QNX targets have no systemd. Start the service from the image's startup script (or
-    SLM where available), and use HAM (High Availability Manager) for restart policies:
-    the service attaches with ham_attach_self() and sends ham_heartbeat(); HAM restarts
-    it when heartbeats stop or it dies. Use only HAM APIs present in your sysroot
-    (several *_control() calls were removed in 8.0.1).
+    SLM where available), daemonize with procmgr_daemon(), and supervise daemon processes
+    using procmgr_event_notify_add(PROCMGR_EVENT_DAEMON_DEATH, ...) (or HAM where the
+    optional High Availability package is installed).
   qnx_alternatives:
     - kind: qnx_native
-      apis: ["ham_attach_self", "ham_heartbeat", "ham_detach_self"]
-      note: "Heartbeat-based supervision with restart actions."
+      apis: ["procmgr_daemon", "procmgr_event_notify_add", "PROCMGR_EVENT_DAEMON_DEATH", "posix_spawn", "waitid"]
+      note: "Process manager daemon death notifications and supervisor restart loop."
   feature_tags: ["ham"]
   improvement:
     dimension: fault_isolation_recovery
     limitation: "Restart policy lives in systemd or a cron script, which QNX targets do not have."
-    qnx: "HAM supervises the process from a separate address space and restarts it on death or missed heartbeats."
+    qnx: "procmgr_event_notify_add(PROCMGR_EVENT_DAEMON_DEATH) delivers a kernel pulse the instant a supervised daemon terminates so a lightweight guardian or HAM can respawn it."
   step:
-    title: Replace systemd supervision with startup script + HAM
+    title: Replace systemd supervision with startup script + procmgr death notifications
     category: reliability_security
     effort: M
-    explanation: "Launch from the image startup script and add a HAM heartbeat."
+    explanation: "Daemonize with procmgr_daemon() and register PROCMGR_EVENT_DAEMON_DEATH pulse notifications (or attach to HAM if installed)."
     before: |
       [Service]
       Restart=always
       WatchdogSec=2
     after: |
-      #include <ha/ham.h>
+      #include <sys/procmgr.h>
+      #include <sys/siginfo.h>
 
-      ham_entity_t *e = ham_attach_self("motor_pid", 500000000ULL /* 0.5 s */, 4, 8, 0);
-      /* in the loop */
-      ham_heartbeat();
-    verify: "ls /proc/ham  # on target, HAM running"
+      struct sigevent ev;
+      SIGEV_PULSE_INIT(&ev, main_coid, 20, PULSE_CODE_SHUTDOWN, 0);
+      int handle = procmgr_event_notify_add(PROCMGR_EVENT_DAEMON_DEATH, &ev);
+      (void)handle;
+    verify: "pidin -F '%a %b %N'  # on target, confirm supervised daemon running"
 
 - id: LNX-PROCFS
   title: Linux /proc paths

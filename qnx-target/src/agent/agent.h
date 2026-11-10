@@ -3,8 +3,8 @@
 #define AGENT_H
 
 #include <stdint.h>
-#include <sys/dispatch.h>
 #include <sys/iofunc.h>
+#include <sys/dispatch.h>
 #include <sys/slog2.h>
 
 #include "advisor_dcmd.h"

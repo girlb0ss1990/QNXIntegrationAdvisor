@@ -1,0 +1,26 @@
+qnx-check 2026-11-10T23:22:49Z
+SDP 8.0.0; compiler: ntox86_64-gcc (QNX8.0.0-rfe1c11236e8a392fdc575fe111bbc8aa4f10d82b-500) 12.2.0; archs: x86_64, aarch64le
+
+== can-telemetry-daemon (service candaemon)
+  [OK ] x86_64    qcc -Vgcc_ntox86_64 -Wall -Wextra -Werror -std=gnu11 -D_QNX_SOURCE -I include -I src qnx_candaemon_resmgr.c -o qnx_candaemon_resmgr
+  [OK ] aarch64le qcc -Vgcc_ntoaarch64le -Wall -Wextra -Werror -std=gnu11 -D_QNX_SOURCE -I include -I src qnx_candaemon_resmgr.c -o qnx_candaemon_resmgr
+  [OK ] x86_64    qcc -Vgcc_ntox86_64 -Wall -Wextra -Werror -std=gnu11 -D_QNX_SOURCE -I include -I src candaemonctl.c -o candaemonctl
+  [OK ] aarch64le qcc -Vgcc_ntoaarch64le -Wall -Wextra -Werror -std=gnu11 -D_QNX_SOURCE -I include -I src candaemonctl.c -o candaemonctl
+  [OK ] x86_64    qcc -Vgcc_ntox86_64 -Wall -Wextra -Werror -std=gnu11 -D_QNX_SOURCE -I include -I src compat_selftest.c -o compat_selftest
+  [OK ] aarch64le qcc -Vgcc_ntoaarch64le -Wall -Wextra -Werror -std=gnu11 -D_QNX_SOURCE -I include -I src compat_selftest.c -o compat_selftest
+== motor-pid-controller (service motor_pid)
+  [OK ] x86_64    qcc -Vgcc_ntox86_64 -Wall -Wextra -Werror -std=gnu11 -D_QNX_SOURCE -I include -I src qnx_motor_pid_resmgr.c -o qnx_motor_pid_resmgr
+  [OK ] aarch64le qcc -Vgcc_ntoaarch64le -Wall -Wextra -Werror -std=gnu11 -D_QNX_SOURCE -I include -I src qnx_motor_pid_resmgr.c -o qnx_motor_pid_resmgr
+  [OK ] x86_64    qcc -Vgcc_ntox86_64 -Wall -Wextra -Werror -std=gnu11 -D_QNX_SOURCE -I include -I src motor_pidctl.c -o motor_pidctl
+  [OK ] aarch64le qcc -Vgcc_ntoaarch64le -Wall -Wextra -Werror -std=gnu11 -D_QNX_SOURCE -I include -I src motor_pidctl.c -o motor_pidctl
+  [OK ] x86_64    qcc -Vgcc_ntox86_64 -Wall -Wextra -Werror -std=gnu11 -D_QNX_SOURCE -I include -I src compat_selftest.c -o compat_selftest
+  [OK ] aarch64le qcc -Vgcc_ntoaarch64le -Wall -Wextra -Werror -std=gnu11 -D_QNX_SOURCE -I include -I src compat_selftest.c -o compat_selftest
+== vitals-monitor (service vitals_monitor)
+  [OK ] x86_64    qcc -Vgcc_ntox86_64 -Wall -Wextra -Werror -std=gnu11 -D_QNX_SOURCE -I include -I src qnx_vitals_monitor_resmgr.c -o qnx_vitals_monitor_resmgr
+  [OK ] aarch64le qcc -Vgcc_ntoaarch64le -Wall -Wextra -Werror -std=gnu11 -D_QNX_SOURCE -I include -I src qnx_vitals_monitor_resmgr.c -o qnx_vitals_monitor_resmgr
+  [OK ] x86_64    qcc -Vgcc_ntox86_64 -Wall -Wextra -Werror -std=gnu11 -D_QNX_SOURCE -I include -I src vitals_monitorctl.c -o vitals_monitorctl
+  [OK ] aarch64le qcc -Vgcc_ntoaarch64le -Wall -Wextra -Werror -std=gnu11 -D_QNX_SOURCE -I include -I src vitals_monitorctl.c -o vitals_monitorctl
+  [OK ] x86_64    qcc -Vgcc_ntox86_64 -Wall -Wextra -Werror -std=gnu11 -D_QNX_SOURCE -I include -I src compat_selftest.c -o compat_selftest
+  [OK ] aarch64le qcc -Vgcc_ntoaarch64le -Wall -Wextra -Werror -std=gnu11 -D_QNX_SOURCE -I include -I src compat_selftest.c -o compat_selftest
+
+18/18 compilations succeeded, 0 warning(s) (built with -Wall -Wextra -Werror)

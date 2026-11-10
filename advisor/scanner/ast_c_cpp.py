@@ -39,8 +39,19 @@ def _get_parser(lang: str):
         try:
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
-                from tree_sitter_languages import get_parser  # type: ignore
-                _parsers[lang] = get_parser(lang)
+                try:
+                    from tree_sitter import Language, Parser  # type: ignore
+                    mod = __import__("tree_sitter_cpp" if lang == "cpp" else "tree_sitter_c")
+                    language = Language(mod.language())
+                    try:
+                        parser = Parser(language)
+                    except TypeError:
+                        parser = Parser()
+                        parser.set_language(language)  # type: ignore[attr-defined]
+                    _parsers[lang] = parser
+                except Exception:
+                    from tree_sitter_languages import get_parser  # type: ignore
+                    _parsers[lang] = get_parser(lang)
         except Exception:
             _ts_failed = True
             return None

@@ -1,33 +1,33 @@
 # QNX 8.0 Integration Report: samples/can-telemetry-daemon
 
-Commit `local` · mode M1 · SDP not found (unverified) · generated 2026-11-09T21:40:11Z
+Commit `local` · mode M1 · SDP 8.0.0 · generated 2026-11-10T22:17:52Z
 
 **Readiness score: 0/100** (score = max(0, 100 - sum(weight(severity) x min(hits, 3))); blocker 15, high 6, medium 2, low 1; guarded findings weigh 0)
 
-14 finding(s) across 3 file(s): 2 blocker, 3 high, 7 medium, 1 low, 1 info. Availability was judged against QNX 8.0 (no SDP found, unverified). Detected roles: device service, daemon, ipc server. Recommended shape on QNX: a /dev/candaemon resource manager driven by a pulse timer. Readiness score 0/100 (deterministic formula).
+14 finding(s) across 3 file(s): 2 blocker, 3 high, 7 medium, 1 low, 1 info. 5 rule(s) depend on APIs missing from your QNX SDP 8.0.0 sysroot. Detected roles: device service, daemon, ipc server. Recommended shape on QNX: a /dev/candaemon resource manager driven by a pulse timer. Readiness score 0/100 (deterministic formula).
 
 ## Compatibility audit
 
 | Severity | Rule | Sysroot | Locations | Guidance |
 | :--- | :--- | :--- | :--- | :--- |
-| blocker | LNX-EPOLL epoll event loop | unknown_no_sdp | `src/candaemon.c:15`, `src/candaemon.c:113`, `src/candaemon.c:117`, `src/candaemon.c:125` | epoll is a Linux-only readiness API. On QNX use POSIX poll()/select() for the lowest-effort port, or restructure the loop around a channel so I/O readiness (ionotify), timers and IPC all arrive as prioritized pulses on one receive call. |
-| blocker | LNX-SOCKETCAN SocketCAN | unknown_no_sdp | `src/candaemon.c:24`, `src/candaemon.c:25`, `src/candaemon.c:36`, `src/candaemon.c:44` | QNX CAN drivers are resource managers (for example /dev/can1/rx0) controlled through devctl(); the command set depends on the driver for your board. There is no 1:1 SocketCAN replacement. Put CAN access behind a HAL interface and add a QNX backend. Check that a CAN driver exists for your target board first. |
-| high | LNX-EVENTFD eventfd notifier | unknown_no_sdp | `src/candaemon.c:16`, `src/candaemon.c:102` | eventfd is used here as a thread-to-loop wake-up. On QNX a pulse sent to the loop's channel does the same job without a file descriptor, and carries a code and a value. A pipe is the portable fallback. |
-| high | LNX-PRCTL-CAPS Root-only daemon / Linux capabilities | unknown_no_sdp | `candaemon.service:9` | QNX splits root's power into abilities. Start as root only long enough to do the privileged setup (for example registering a path name), then call procmgr_ability() to keep just the abilities you need, lock the rest, and switch to an unprivileged user. A secpol policy can express the same thing declaratively. |
-| high | LNX-SIGNALFD signalfd | unknown_no_sdp | `src/candaemon.c:18`, `src/candaemon.c:111` | Block the signals in all threads and handle them in a dedicated thread with sigwaitinfo(), which then notifies the main loop (for example with a pulse). |
-| medium | BLD-COMPILER Host-only compiler settings | unknown_no_sdp | `Makefile:1` | Cross-compile with qcc/q++ and a -V variant (gcc_ntox86_64, gcc_ntoaarch64le). Remove host-only flags such as -march=native and hardcoded gcc, and do not fail the build when CMAKE_SYSTEM_NAME is not Linux. The kit's toolchain file sets all of this. |
-| medium | LNX-FORK fork() in a multithreaded program | unknown_no_sdp | `src/candaemon.c:84` | posix_spawn() is the recommended way to start processes on QNX. fork() in a multithreaded program is unsafe under POSIX on any OS, because only the calling thread is copied and locks held by other threads stay locked in the child. |
-| medium | LNX-IOCTL ioctl on device descriptors | unknown_no_sdp | `src/candaemon.c:42` | QNX offers ioctl() as a wrapper over devctl() for common requests, but driver-specific requests must be rewritten against the QNX driver's DCMD_* set. Wrap device access in a small hardware-abstraction layer (HAL) so the Linux and QNX implementations can live side by side. |
-| medium | LNX-LIBS Linux-only link libraries | unknown_no_sdp | `Makefile:3` | On QNX the pthread, real-time and dynamic-loading functions are part of libc. Drop a -l flag only if that library is missing from the sysroot (the audit checks this). In CMake prefer find_package(Threads) + Threads::Threads. |
-| medium | LNX-PROCFS Linux /proc paths | unknown_no_sdp | `src/candaemon.c:76` | QNX's /proc is different: per-process information is read with devctl(DCMD_PROC_*) on /proc/<pid>/as. Free memory can be read from the size of /proc itself. |
-| medium | LNX-SOCKLIB BSD sockets without libsocket | unknown_no_sdp | `src/candaemon.c:36`, `src/candaemon.c:45`, `src/candaemon.c:51`, `src/candaemon.c:55` | On QNX the socket API lives in libsocket, not libc. Add -lsocket to the link line and make sure the io-sock network manager runs on the target. (link: -lsocket) |
-| medium | LNX-SYSTEMD systemd unit / watchdog script | unknown_no_sdp | `candaemon.service:1` | QNX targets have no systemd. Start the service from the image's startup script (or SLM where available), and use HAM (High Availability Manager) for restart policies: the service attaches with ham_attach_self() and sends ham_heartbeat(); HAM restarts it when heartbeats stop or it dies. Use only HAM APIs present in your sysroot (several *_control() calls were removed in 8.0.1). |
-| low | LNX-PERIODIC-SLEEP sleep-based periodic loop | unknown_no_sdp | `src/candaemon.c:67` | A relative sleep inside a loop drifts by the loop body's run time. Use clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, ...) with a running deadline, or a pulse timer when the thread also needs to receive other events. |
-| info | LNX-LOG syslog logging | unknown_no_sdp | `src/candaemon.c:37`, `src/candaemon.c:42`, `src/candaemon.c:45`, `src/candaemon.c:56` | syslog() works on QNX. slog2 (slog2_register, slog2f) is recommended for structured, low-overhead logs that you can read with slog2info. |
+| blocker | LNX-EPOLL epoll event loop | missing | `src/candaemon.c:15`, `src/candaemon.c:113`, `src/candaemon.c:117`, `src/candaemon.c:125` | epoll is a Linux-only readiness API. On QNX use POSIX poll()/select() for the lowest-effort port, or restructure the loop around a channel so I/O readiness (ionotify), timers and IPC all arrive as prioritized pulses on one receive call. |
+| blocker | LNX-SOCKETCAN SocketCAN | missing | `src/candaemon.c:24`, `src/candaemon.c:25`, `src/candaemon.c:36`, `src/candaemon.c:44` | QNX CAN drivers are resource managers (for example /dev/can1/rx0) controlled through devctl(); the command set depends on the driver for your board. There is no 1:1 SocketCAN replacement. Put CAN access behind a HAL interface and add a QNX backend. Check that a CAN driver exists for your target board first. |
+| high | LNX-EVENTFD eventfd notifier | missing | `src/candaemon.c:16`, `src/candaemon.c:102` | eventfd is used here as a thread-to-loop wake-up. On QNX a pulse sent to the loop's channel does the same job without a file descriptor, and carries a code and a value. A pipe is the portable fallback. |
+| high | LNX-PRCTL-CAPS Root-only daemon / Linux capabilities | available | `candaemon.service:9` | QNX splits root's power into abilities. Start as root only long enough to do the privileged setup (for example registering a path name), then call procmgr_ability() to keep just the abilities you need, lock the rest, and switch to an unprivileged user. A secpol policy can express the same thing declaratively. |
+| high | LNX-SIGNALFD signalfd | missing | `src/candaemon.c:18`, `src/candaemon.c:111` | Block the signals in all threads and handle them in a dedicated thread with sigwaitinfo(), which then notifies the main loop (for example with a pulse). |
+| medium | BLD-COMPILER Host-only compiler settings | available | `Makefile:1` | Cross-compile with qcc/q++ and a -V variant (gcc_ntox86_64, gcc_ntoaarch64le). Remove host-only flags such as -march=native and hardcoded gcc, and do not fail the build when CMAKE_SYSTEM_NAME is not Linux. The kit's toolchain file sets all of this. |
+| medium | LNX-FORK fork() in a multithreaded program | available | `src/candaemon.c:84` | posix_spawn() is the recommended way to start processes on QNX. fork() in a multithreaded program is unsafe under POSIX on any OS, because only the calling thread is copied and locks held by other threads stay locked in the child. |
+| medium | LNX-IOCTL ioctl on device descriptors | available | `src/candaemon.c:42` | QNX offers ioctl() as a wrapper over devctl() for common requests, but driver-specific requests must be rewritten against the QNX driver's DCMD_* set. Wrap device access in a small hardware-abstraction layer (HAL) so the Linux and QNX implementations can live side by side. |
+| medium | LNX-LIBS Linux-only link libraries | missing | `Makefile:3` | On QNX the pthread, real-time and dynamic-loading functions are part of libc. Drop a -l flag only if that library is missing from the sysroot (the audit checks this). In CMake prefer find_package(Threads) + Threads::Threads. |
+| medium | LNX-PROCFS Linux /proc paths | available | `src/candaemon.c:76` | QNX's /proc is different: per-process information is read with devctl(DCMD_PROC_*) on /proc/<pid>/as. Free memory can be read from the size of /proc itself. |
+| medium | LNX-SOCKLIB BSD sockets without libsocket | available | `src/candaemon.c:36`, `src/candaemon.c:45`, `src/candaemon.c:51`, `src/candaemon.c:55` | On QNX the socket API lives in libsocket, not libc. Add -lsocket to the link line and make sure the io-sock network manager runs on the target. (link: -lsocket) |
+| medium | LNX-SYSTEMD systemd unit / watchdog script | available | `candaemon.service:1` | QNX targets have no systemd. Start the service from the image's startup script (or SLM where available), daemonize with procmgr_daemon(), and supervise daemon processes using procmgr_event_notify_add(PROCMGR_EVENT_DAEMON_DEATH, ...) (or HAM where the optional High Availability package is installed). |
+| low | LNX-PERIODIC-SLEEP sleep-based periodic loop | available | `src/candaemon.c:67` | A relative sleep inside a loop drifts by the loop body's run time. Use clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, ...) with a running deadline, or a pulse timer when the thread also needs to receive other events. |
+| info | LNX-LOG syslog logging | available | `src/candaemon.c:37`, `src/candaemon.c:42`, `src/candaemon.c:45`, `src/candaemon.c:56` | syslog() works on QNX. slog2 (slog2_register, slog2f) is recommended for structured, low-overhead logs that you can read with slog2info. |
 
 ## Pillar 1: Relevant QNX features
 
-### channels pulses (relevance 5/5)
+### channels pulses (relevance 5/5) ✓ sysroot
 
 Component: `src/candaemon.c`
 
@@ -43,7 +43,7 @@ flowchart LR
   CH --> L["MsgReceivePulse loop"]
 ```
 
-### resource manager (relevance 5/5)
+### resource manager (relevance 5/5) ✓ sysroot
 
 Component: `src/candaemon.c`
 
@@ -58,7 +58,7 @@ flowchart LR
   R --> D["device driver resmgr"]
 ```
 
-### procmgr ability (relevance 4/5)
+### procmgr ability (relevance 4/5) ✓ sysroot
 
 Component: `candaemon.service`
 
@@ -66,28 +66,27 @@ Component: `candaemon.service`
 
 APIs: `procmgr_ability`, `setuid`
 
-### secpol (relevance 4/5)
+### secpol (relevance 4/5) ✓ sysroot
 
 Component: `candaemon.service`
 
 The same least-privilege intent can be written as a secpol policy for candaemon, so the system integrator controls abilities without changing code.
 
-### ham (relevance 3/5)
+### ham (relevance 3/5) ✓ sysroot
 
 Component: `candaemon.service`
 
-`candaemon.service` relies on systemd or scripts for restarts. HAM supervises the process from outside its address space; with a heartbeat it also catches a hung process, not only a dead one.
+`candaemon.service` relies on systemd or scripts for restarts. On QNX 8.0, procmgr_daemon() and procmgr_event_notify_add(PROCMGR_EVENT_DAEMON_DEATH) notify a guardian via kernel pulse immediately on process termination (or use HAM when the optional HA package is installed).
 
-APIs: `ham_attach_self`, `ham_heartbeat`, `ham_detach_self`
+APIs: `procmgr_daemon`, `procmgr_event_notify_add`, `PROCMGR_EVENT_DAEMON_DEATH`, `posix_spawn`, `waitid`
 
 ```mermaid
 flowchart LR
-  S["candaemon"] -->|"ham_heartbeat every 0.5 s"| H["HAM"]
-  H -->|"missed heartbeats or death"| A["restart action"]
-  A --> S
+  S["candaemon daemon"] -->|"PROCMGR_EVENT_DAEMON_DEATH pulse"| G["procmgr / guardian"]
+  G -->|"posix_spawn restart"| S
 ```
 
-### slog2 (relevance 1/5)
+### slog2 (relevance 1/5) ✓ sysroot
 
 Component: `src/candaemon.c`
 
@@ -104,7 +103,7 @@ APIs: `slog2_register`, `slog2f`
 - **maintainability portability** [static] Shutdown handling depends on a Linux-only fd type. → A sigwaitinfo() thread is portable and integrates with a pulse-driven loop. (`src/candaemon.c:18`, `src/candaemon.c:111`)
 - **fault isolation recovery** [static] Child processes are created with fork() from a threaded parent. → posix_spawn() creates the child directly and can set its scheduling policy and priority. (`src/candaemon.c:84`)
 - **maintainability portability** [static] Device control calls are scattered through application code and tied to Linux request codes. → A HAL with a devctl()-based QNX backend isolates board-specific commands in one file. (`src/candaemon.c:42`)
-- **fault isolation recovery** [static] Restart policy lives in systemd or a cron script, which QNX targets do not have. → HAM supervises the process from a separate address space and restarts it on death or missed heartbeats. (`candaemon.service:1`)
+- **fault isolation recovery** [static] Restart policy lives in systemd or a cron script, which QNX targets do not have. → procmgr_event_notify_add(PROCMGR_EVENT_DAEMON_DEATH) delivers a kernel pulse the instant a supervised daemon terminates so a lightweight guardian or HAM can respawn it. (`candaemon.service:1`)
 - **determinism latency** [static] Relative sleeps accumulate drift equal to the loop body's execution time. → Absolute-deadline sleeps or pulse timers keep the period fixed. (`src/candaemon.c:67`)
 - **maintainability portability** [static] Logging goes through syslog, which formats and sends each message to a daemon. → slog2 writes to a shared-memory buffer with per-buffer verbosity, viewable with slog2info. (`src/candaemon.c:37`, `src/candaemon.c:42`, `src/candaemon.c:45`)
 - **fault isolation recovery** [qualitative] Device access and client handling live in one process with the application logic. → As a resource manager the service is a separate process that clients reach through open/read/devctl; it can be restarted without restarting its clients' code. The agent measures the time from spawn until /dev/<service> appears.
@@ -136,7 +135,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "QNX")
   target_include_directories(candaemon PRIVATE ${CMAKE_CURRENT_LIST_DIR}/../include)
   # From the sysroot audit: socket (BSD sockets without libsocket)
   target_link_libraries(candaemon socket)
-  # On QNX these functions are normally in libc (unverified: no SDP was indexed):
+  # These libraries do not exist in your QNX sysroot (their functions are in libc):
   #   pthread, rt  -> remove them from target_link_libraries for QNX builds.
 endif()
 ```
@@ -145,7 +144,7 @@ Verify: `cmake -B build-qnx -DCMAKE_TOOLCHAIN_FILE=cmake/qnx8-toolchain.cmake -D
 
 ### 2. Replace the epoll loop
 
-*api_migration · effort M · qcc snippet check: skipped*
+*api_migration · effort M · qcc snippet check: failed*
 
 Start with poll() so the code builds and runs on QNX. Once it works, consider moving to a channel + pulse loop (see the resource-manager step) where each event source has its own pulse code and priority.
 
@@ -180,7 +179,7 @@ Verify: `qcc -Vgcc_ntox86_64 -fsyntax-only src/main.c`
 
 ### 3. Introduce a CAN HAL with a QNX backend stub
 
-*api_migration · effort L · qcc snippet check: skipped*
+*api_migration · effort L · qcc snippet check: failed*
 
 Define can_hal_open/can_hal_read/can_hal_close. Keep the SocketCAN backend for Linux. The QNX backend opens the CAN driver's device path and uses the driver's devctl commands; fill in the DCMD_* values from the driver you deploy.
 
@@ -211,7 +210,7 @@ Verify: `qcc -Vgcc_ntox86_64 -fsyntax-only src/can_hal_qnx.c`
 
 ### 4. Turn eventfd wake-ups into pulses
 
-*api_migration · effort S · qcc snippet check: skipped*
+*api_migration · effort S · qcc snippet check: failed*
 
 Create the notifier with the qnx_compat.h shim from the porting kit. On QNX it sends a pulse to the loop's channel; elsewhere it falls back to a pipe.
 
@@ -238,7 +237,7 @@ Verify: `qcc -Vgcc_ntox86_64 -fsyntax-only -Iinclude src/main.c`
 
 ### 5. Handle signals in a sigwaitinfo() thread
 
-*api_migration · effort S · qcc snippet check: skipped*
+*api_migration · effort S · qcc snippet check: failed*
 
 Block SIGTERM/SIGINT before creating threads, then wait for them in one thread.
 
@@ -270,7 +269,7 @@ Verify: `qcc -Vgcc_ntox86_64 -fsyntax-only src/main.c`
 
 ### 6. Replace fork()/exec with posix_spawn()
 
-*api_migration · effort S · qcc snippet check: skipped*
+*api_migration · effort S · qcc snippet check: failed*
 
 Use posix_spawn(); for daemonizing, let the startup script background the process instead.
 
@@ -299,7 +298,7 @@ Verify: `qcc -Vgcc_ntox86_64 -fsyntax-only src/main.c`
 
 ### 7. Wrap device control in a HAL
 
-*api_migration · effort M · qcc snippet check: skipped*
+*api_migration · effort M · qcc snippet check: failed*
 
 Move ioctl() calls behind functions such as hal_set_line(); implement the QNX side with devctl().
 
@@ -333,7 +332,7 @@ Verify: `qcc -Vgcc_ntox86_64 -fsyntax-only src/hal_qnx.c`
 
 ### 8. Replace Linux /proc parsing
 
-*api_migration · effort S · qcc snippet check: skipped*
+*api_migration · effort S · qcc snippet check: failed*
 
 Use DCMD_PROC_INFO on /proc/self/as instead of parsing text files.
 
@@ -364,7 +363,7 @@ Verify: `qcc -Vgcc_ntox86_64 -fsyntax-only src/main.c`
 
 ### 9. Expose the service as a /dev/candaemon resource manager
 
-*resmgr_conversion · effort L · qcc snippet check: skipped*
+*resmgr_conversion · effort L · qcc snippet check: failed*
 
 Start from the kit's resource-manager skeleton. Clients open /dev/candaemon and use read(), write() and devctl() instead of a private socket or shared memory. The periodic work moves into the timer pulse handler, which runs serialized with client requests in one thread.
 
@@ -411,7 +410,7 @@ Verify: `ls -l /dev/candaemon && candaemonctl  # on the target`
 
 ### 10. Use absolute-deadline sleeps for periodic work
 
-*scheduling_timing · effort S · qcc snippet check: skipped*
+*scheduling_timing · effort S · qcc snippet check: failed*
 
 Replace relative sleeps in periodic loops with clock_nanosleep(TIMER_ABSTIME).
 
@@ -442,7 +441,7 @@ Verify: `qcc -Vgcc_ntox86_64 -fsyntax-only src/main.c`
 
 ### 11. Drop privileges with procmgr_ability()
 
-*reliability_security · effort M · qcc snippet check: skipped*
+*reliability_security · effort M · qcc snippet check: failed*
 
 After privileged setup, allow the specific abilities the service still needs for the non-root domain, deny and lock everything else, then setuid() to a service user.
 
@@ -469,11 +468,11 @@ if (setgid(SERVICE_GID) == -1 || setuid(SERVICE_UID) == -1)
 
 Verify: `pidin -p <service> arg  # on target: confirm non-root uid`
 
-### 12. Replace systemd supervision with startup script + HAM
+### 12. Replace systemd supervision with startup script + procmgr death notifications
 
-*reliability_security · effort M · qcc snippet check: skipped*
+*reliability_security · effort M · qcc snippet check: failed*
 
-Launch from the image startup script and add a HAM heartbeat.
+Daemonize with procmgr_daemon() and register PROCMGR_EVENT_DAEMON_DEATH pulse notifications (or attach to HAM if installed).
 
 Before:
 
@@ -495,18 +494,20 @@ WantedBy=multi-user.target
 After:
 
 ```c
-#include <ha/ham.h>
+#include <sys/procmgr.h>
+#include <sys/siginfo.h>
 
-ham_entity_t *e = ham_attach_self("motor_pid", 500000000ULL /* 0.5 s */, 4, 8, 0);
-/* in the loop */
-ham_heartbeat();
+struct sigevent ev;
+SIGEV_PULSE_INIT(&ev, main_coid, 20, PULSE_CODE_SHUTDOWN, 0);
+int handle = procmgr_event_notify_add(PROCMGR_EVENT_DAEMON_DEATH, &ev);
+(void)handle;
 ```
 
-Verify: `ls /proc/ham  # on target, HAM running`
+Verify: `pidin -F '%a %b %N'  # on target, confirm supervised daemon running`
 
 ### 13. Optionally switch to slog2
 
-*reliability_security · effort S · qcc snippet check: skipped*
+*reliability_security · effort S · qcc snippet check: failed*
 
 Register a slog2 buffer set at start-up and route log calls through slog2f().
 

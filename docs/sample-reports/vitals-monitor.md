@@ -1,31 +1,31 @@
 # QNX 8.0 Integration Report: samples/vitals-monitor
 
-Commit `local` · mode M1 · SDP not found (unverified) · generated 2026-11-09T21:40:11Z
+Commit `local` · mode M1 · SDP 8.0.0 · generated 2026-11-10T22:17:53Z
 
 **Readiness score: 19/100** (score = max(0, 100 - sum(weight(severity) x min(hits, 3))); blocker 15, high 6, medium 2, low 1; guarded findings weigh 0)
 
-12 finding(s) across 4 file(s): 1 blocker, 3 high, 5 medium, 1 low, 2 info. Availability was judged against QNX 8.0 (no SDP found, unverified). Detected roles: device service, periodic control loop, daemon, ipc server. Recommended shape on QNX: a /dev/vitals_monitor resource manager driven by a pulse timer. Readiness score 19/100 (deterministic formula).
+12 finding(s) across 4 file(s): 1 blocker, 3 high, 5 medium, 1 low, 2 info. 3 rule(s) depend on APIs missing from your QNX SDP 8.0.0 sysroot. Detected roles: device service, periodic control loop, daemon, ipc server. Recommended shape on QNX: a /dev/vitals_monitor resource manager driven by a pulse timer. Readiness score 19/100 (deterministic formula).
 
 ## Compatibility audit
 
 | Severity | Rule | Sysroot | Locations | Guidance |
 | :--- | :--- | :--- | :--- | :--- |
-| blocker | LNX-I2C Linux i2c-dev | unknown_no_sdp | `src/vitals.c:25`, `src/vitals.c:40` | QNX I2C controllers are served by board-specific resource-manager drivers controlled with devctl() (see <hw/i2c.h> in your SDP for the command set). Wrap sensor access in a HAL and implement the QNX side against your board's I2C driver. |
-| high | LNX-EVENTFD eventfd notifier | unknown_no_sdp | `src/vitals.c:14`, `src/vitals.c:114` | eventfd is used here as a thread-to-loop wake-up. On QNX a pulse sent to the loop's channel does the same job without a file descriptor, and carries a code and a value. A pipe is the portable fallback. |
-| high | LNX-PRCTL-CAPS Root-only daemon / Linux capabilities | unknown_no_sdp | `src/vitals.c:17`, `src/vitals.c:102`, `src/vitals.c:106`, `src/vitals.c:107` | QNX splits root's power into abilities. Start as root only long enough to do the privileged setup (for example registering a path name), then call procmgr_ability() to keep just the abilities you need, lock the rest, and switch to an unprivileged user. A secpol policy can express the same thing declaratively. |
-| high | LNX-SYSFS Linux /sys paths | unknown_no_sdp | `src/vitals.c:56` | There is no sysfs on QNX. PWM, GPIO and thermal data come from board-specific resource managers. Hide these behind a HAL and implement the QNX backend for your board's drivers. |
-| medium | BLD-COMPILER Host-only compiler settings | unknown_no_sdp | `CMakeLists.txt:5`, `CMakeLists.txt:7` | Cross-compile with qcc/q++ and a -V variant (gcc_ntox86_64, gcc_ntoaarch64le). Remove host-only flags such as -march=native and hardcoded gcc, and do not fail the build when CMAKE_SYSTEM_NAME is not Linux. The kit's toolchain file sets all of this. |
-| medium | LNX-FORK fork() in a multithreaded program | unknown_no_sdp | `src/vitals.c:87` | posix_spawn() is the recommended way to start processes on QNX. fork() in a multithreaded program is unsafe under POSIX on any OS, because only the calling thread is copied and locks held by other threads stay locked in the child. |
-| medium | LNX-IOCTL ioctl on device descriptors | unknown_no_sdp | `src/vitals.c:40` | QNX offers ioctl() as a wrapper over devctl() for common requests, but driver-specific requests must be rewritten against the QNX driver's DCMD_* set. Wrap device access in a small hardware-abstraction layer (HAL) so the Linux and QNX implementations can live side by side. |
-| medium | LNX-LIBS Linux-only link libraries | unknown_no_sdp | `CMakeLists.txt:13` | On QNX the pthread, real-time and dynamic-loading functions are part of libc. Drop a -l flag only if that library is missing from the sysroot (the audit checks this). In CMake prefer find_package(Threads) + Threads::Threads. |
-| medium | LNX-SYSTEMD systemd unit / watchdog script | unknown_no_sdp | `scripts/vitals-watchdog.sh:1`, `vitals-monitor.service:1` | QNX targets have no systemd. Start the service from the image's startup script (or SLM where available), and use HAM (High Availability Manager) for restart policies: the service attaches with ham_attach_self() and sends ham_heartbeat(); HAM restarts it when heartbeats stop or it dies. Use only HAM APIs present in your sysroot (several *_control() calls were removed in 8.0.1). |
-| low | LNX-PERIODIC-SLEEP sleep-based periodic loop | unknown_no_sdp | `src/vitals.c:79` | A relative sleep inside a loop drifts by the loop body's run time. Use clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, ...) with a running deadline, or a pulse timer when the thread also needs to receive other events. |
-| info | LNX-LOG syslog logging | unknown_no_sdp | `src/vitals.c:39`, `src/vitals.c:40`, `src/vitals.c:100` | syslog() works on QNX. slog2 (slog2_register, slog2f) is recommended for structured, low-overhead logs that you can read with slog2info. |
-| info | LNX-SHM POSIX shared memory | unknown_no_sdp | `src/vitals.c:109` | shm_open()/mmap() work on QNX. For memory shared with devices or across a hypervisor boundary, look at typed memory (posix_typed_mem_open). Keep the shared struct layout fixed-size and guard it with a process-shared, priority-inheriting mutex. |
+| blocker | LNX-I2C Linux i2c-dev | missing | `src/vitals.c:25`, `src/vitals.c:40` | QNX I2C controllers are served by board-specific resource-manager drivers controlled with devctl() (see <hw/i2c.h> in your SDP for the command set). Wrap sensor access in a HAL and implement the QNX side against your board's I2C driver. |
+| high | LNX-EVENTFD eventfd notifier | missing | `src/vitals.c:14`, `src/vitals.c:114` | eventfd is used here as a thread-to-loop wake-up. On QNX a pulse sent to the loop's channel does the same job without a file descriptor, and carries a code and a value. A pipe is the portable fallback. |
+| high | LNX-PRCTL-CAPS Root-only daemon / Linux capabilities | available | `src/vitals.c:17`, `src/vitals.c:102`, `src/vitals.c:106`, `src/vitals.c:107` | QNX splits root's power into abilities. Start as root only long enough to do the privileged setup (for example registering a path name), then call procmgr_ability() to keep just the abilities you need, lock the rest, and switch to an unprivileged user. A secpol policy can express the same thing declaratively. |
+| high | LNX-SYSFS Linux /sys paths | available | `src/vitals.c:56` | There is no sysfs on QNX. PWM, GPIO and thermal data come from board-specific resource managers. Hide these behind a HAL and implement the QNX backend for your board's drivers. |
+| medium | BLD-COMPILER Host-only compiler settings | available | `CMakeLists.txt:5`, `CMakeLists.txt:7` | Cross-compile with qcc/q++ and a -V variant (gcc_ntox86_64, gcc_ntoaarch64le). Remove host-only flags such as -march=native and hardcoded gcc, and do not fail the build when CMAKE_SYSTEM_NAME is not Linux. The kit's toolchain file sets all of this. |
+| medium | LNX-FORK fork() in a multithreaded program | available | `src/vitals.c:87` | posix_spawn() is the recommended way to start processes on QNX. fork() in a multithreaded program is unsafe under POSIX on any OS, because only the calling thread is copied and locks held by other threads stay locked in the child. |
+| medium | LNX-IOCTL ioctl on device descriptors | available | `src/vitals.c:40` | QNX offers ioctl() as a wrapper over devctl() for common requests, but driver-specific requests must be rewritten against the QNX driver's DCMD_* set. Wrap device access in a small hardware-abstraction layer (HAL) so the Linux and QNX implementations can live side by side. |
+| medium | LNX-LIBS Linux-only link libraries | missing | `CMakeLists.txt:13` | On QNX the pthread, real-time and dynamic-loading functions are part of libc. Drop a -l flag only if that library is missing from the sysroot (the audit checks this). In CMake prefer find_package(Threads) + Threads::Threads. |
+| medium | LNX-SYSTEMD systemd unit / watchdog script | available | `scripts/vitals-watchdog.sh:1`, `vitals-monitor.service:1` | QNX targets have no systemd. Start the service from the image's startup script (or SLM where available), daemonize with procmgr_daemon(), and supervise daemon processes using procmgr_event_notify_add(PROCMGR_EVENT_DAEMON_DEATH, ...) (or HAM where the optional High Availability package is installed). |
+| low | LNX-PERIODIC-SLEEP sleep-based periodic loop | available | `src/vitals.c:79` | A relative sleep inside a loop drifts by the loop body's run time. Use clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, ...) with a running deadline, or a pulse timer when the thread also needs to receive other events. |
+| info | LNX-LOG syslog logging | available | `src/vitals.c:39`, `src/vitals.c:40`, `src/vitals.c:100` | syslog() works on QNX. slog2 (slog2_register, slog2f) is recommended for structured, low-overhead logs that you can read with slog2info. |
+| info | LNX-SHM POSIX shared memory | available | `src/vitals.c:109` | shm_open()/mmap() work on QNX. For memory shared with devices or across a hypervisor boundary, look at typed memory (posix_typed_mem_open). Keep the shared struct layout fixed-size and guard it with a process-shared, priority-inheriting mutex. |
 
 ## Pillar 1: Relevant QNX features
 
-### resource manager (relevance 5/5)
+### resource manager (relevance 5/5) ✓ sysroot
 
 Component: `src/vitals.c`
 
@@ -40,7 +40,7 @@ flowchart LR
   R --> D["device driver resmgr"]
 ```
 
-### channels pulses (relevance 4/5)
+### channels pulses (relevance 4/5) ✓ sysroot
 
 Component: `src/vitals.c`
 
@@ -56,7 +56,7 @@ flowchart LR
   CH --> L["MsgReceivePulse loop"]
 ```
 
-### procmgr ability (relevance 4/5)
+### procmgr ability (relevance 4/5) ✓ sysroot
 
 Component: `src/vitals.c`
 
@@ -64,34 +64,33 @@ Component: `src/vitals.c`
 
 APIs: `procmgr_ability`, `setuid`
 
-### secpol (relevance 4/5)
+### secpol (relevance 4/5) ✓ sysroot
 
 Component: `src/vitals.c`
 
 The same least-privilege intent can be written as a secpol policy for vitals_monitor, so the system integrator controls abilities without changing code.
 
-### ham (relevance 3/5)
+### ham (relevance 3/5) ✓ sysroot
 
 Component: `scripts/vitals-watchdog.sh`
 
-`scripts/vitals-watchdog.sh` relies on systemd or scripts for restarts. HAM supervises the process from outside its address space; with a heartbeat it also catches a hung process, not only a dead one.
+`scripts/vitals-watchdog.sh` relies on systemd or scripts for restarts. On QNX 8.0, procmgr_daemon() and procmgr_event_notify_add(PROCMGR_EVENT_DAEMON_DEATH) notify a guardian via kernel pulse immediately on process termination (or use HAM when the optional HA package is installed).
 
-APIs: `ham_attach_self`, `ham_heartbeat`, `ham_detach_self`
+APIs: `procmgr_daemon`, `procmgr_event_notify_add`, `PROCMGR_EVENT_DAEMON_DEATH`, `posix_spawn`, `waitid`
 
 ```mermaid
 flowchart LR
-  S["vitals_monitor"] -->|"ham_heartbeat every 0.5 s"| H["HAM"]
-  H -->|"missed heartbeats or death"| A["restart action"]
-  A --> S
+  S["vitals_monitor daemon"] -->|"PROCMGR_EVENT_DAEMON_DEATH pulse"| G["procmgr / guardian"]
+  G -->|"posix_spawn restart"| S
 ```
 
-### tracelogger (relevance 2/5)
+### tracelogger (relevance 2/5) ✓ sysroot
 
 Component: `src/vitals.c`
 
 Capture a kernel event trace with tracelogger while vitals_monitor runs and inspect scheduling, IPC and interrupts in the System Profiler (Momentics or the VS Code QNX Toolkit) to confirm the timing behaviour after porting.
 
-### slog2 (relevance 1/5)
+### slog2 (relevance 1/5) ✓ sysroot
 
 Component: `src/vitals.c`
 
@@ -99,7 +98,7 @@ Component: `src/vitals.c`
 
 APIs: `slog2_register`, `slog2f`
 
-### typed shared memory (relevance 1/5)
+### typed shared memory (relevance 1/5) ✓ sysroot
 
 Component: `src/vitals.c`
 
@@ -114,7 +113,7 @@ APIs: `shm_open`, `mmap`, `posix_typed_mem_open`
 - **security least privilege** [static] The process runs with full root privileges for its whole lifetime. → procmgr_ability() keeps only the abilities the service needs and locks them, so a compromise does not yield root. (`src/vitals.c:17`, `src/vitals.c:102`, `src/vitals.c:106`)
 - **fault isolation recovery** [static] Child processes are created with fork() from a threaded parent. → posix_spawn() creates the child directly and can set its scheduling policy and priority. (`src/vitals.c:87`)
 - **maintainability portability** [static] Device control calls are scattered through application code and tied to Linux request codes. → A HAL with a devctl()-based QNX backend isolates board-specific commands in one file. (`src/vitals.c:40`)
-- **fault isolation recovery** [static] Restart policy lives in systemd or a cron script, which QNX targets do not have. → HAM supervises the process from a separate address space and restarts it on death or missed heartbeats. (`scripts/vitals-watchdog.sh:1`, `vitals-monitor.service:1`)
+- **fault isolation recovery** [static] Restart policy lives in systemd or a cron script, which QNX targets do not have. → procmgr_event_notify_add(PROCMGR_EVENT_DAEMON_DEATH) delivers a kernel pulse the instant a supervised daemon terminates so a lightweight guardian or HAM can respawn it. (`scripts/vitals-watchdog.sh:1`, `vitals-monitor.service:1`)
 - **determinism latency** [static] Relative sleeps accumulate drift equal to the loop body's execution time. → Absolute-deadline sleeps or pulse timers keep the period fixed. (`src/vitals.c:79`)
 - **maintainability portability** [static] Logging goes through syslog, which formats and sends each message to a daemon. → slog2 writes to a shared-memory buffer with per-buffer verbosity, viewable with slog2info. (`src/vitals.c:39`, `src/vitals.c:40`, `src/vitals.c:100`)
 - **determinism latency** [qualitative] The periodic loop's wake-up lateness under background CPU load is unknown on QNX. → Run the agent's timer benchmark (1 kHz pulse timer, SCHED_FIFO) with and without low-priority load threads to measure wake-up lateness on your target.
@@ -146,7 +145,7 @@ After:
 if(CMAKE_SYSTEM_NAME STREQUAL "QNX")
   target_compile_definitions(vitals_monitor PRIVATE _QNX_SOURCE)
   target_include_directories(vitals_monitor PRIVATE ${CMAKE_CURRENT_LIST_DIR}/../include)
-  # On QNX these functions are normally in libc (unverified: no SDP was indexed):
+  # These libraries do not exist in your QNX sysroot (their functions are in libc):
   #   rt  -> remove them from target_link_libraries for QNX builds.
 endif()
 ```
@@ -155,7 +154,7 @@ Verify: `cmake -B build-qnx -DCMAKE_TOOLCHAIN_FILE=cmake/qnx8-toolchain.cmake -D
 
 ### 2. Put I2C access behind a sensor HAL
 
-*api_migration · effort M · qcc snippet check: skipped*
+*api_migration · effort M · qcc snippet check: failed*
 
 Create sensor_hal_read(); move the i2c-dev code to sensor_hal_linux.c and add sensor_hal_qnx.c.
 
@@ -181,7 +180,7 @@ Verify: `qcc -Vgcc_ntox86_64 -fsyntax-only src/sensor_hal_qnx.c`
 
 ### 3. Turn eventfd wake-ups into pulses
 
-*api_migration · effort S · qcc snippet check: skipped*
+*api_migration · effort S · qcc snippet check: failed*
 
 Create the notifier with the qnx_compat.h shim from the porting kit. On QNX it sends a pulse to the loop's channel; elsewhere it falls back to a pipe.
 
@@ -226,7 +225,7 @@ Verify: `grep -rn '"/sys/' src/  # should be empty outside hal_linux.c`
 
 ### 5. Replace fork()/exec with posix_spawn()
 
-*api_migration · effort S · qcc snippet check: skipped*
+*api_migration · effort S · qcc snippet check: failed*
 
 Use posix_spawn(); for daemonizing, let the startup script background the process instead.
 
@@ -255,7 +254,7 @@ Verify: `qcc -Vgcc_ntox86_64 -fsyntax-only src/main.c`
 
 ### 6. Wrap device control in a HAL
 
-*api_migration · effort M · qcc snippet check: skipped*
+*api_migration · effort M · qcc snippet check: failed*
 
 Move ioctl() calls behind functions such as hal_set_line(); implement the QNX side with devctl().
 
@@ -289,7 +288,7 @@ Verify: `qcc -Vgcc_ntox86_64 -fsyntax-only src/hal_qnx.c`
 
 ### 7. Expose the service as a /dev/vitals_monitor resource manager
 
-*resmgr_conversion · effort L · qcc snippet check: skipped*
+*resmgr_conversion · effort L · qcc snippet check: failed*
 
 Start from the kit's resource-manager skeleton. Clients open /dev/vitals_monitor and use read(), write() and devctl() instead of a private socket or shared memory. The periodic work moves into the timer pulse handler, which runs serialized with client requests in one thread.
 
@@ -336,7 +335,7 @@ Verify: `ls -l /dev/vitals_monitor && vitals_monitorctl  # on the target`
 
 ### 8. Use absolute-deadline sleeps for periodic work
 
-*scheduling_timing · effort S · qcc snippet check: skipped*
+*scheduling_timing · effort S · qcc snippet check: failed*
 
 Replace relative sleeps in periodic loops with clock_nanosleep(TIMER_ABSTIME).
 
@@ -367,7 +366,7 @@ Verify: `qcc -Vgcc_ntox86_64 -fsyntax-only src/main.c`
 
 ### 9. Drop privileges with procmgr_ability()
 
-*reliability_security · effort M · qcc snippet check: skipped*
+*reliability_security · effort M · qcc snippet check: failed*
 
 After privileged setup, allow the specific abilities the service still needs for the non-root domain, deny and lock everything else, then setuid() to a service user.
 
@@ -400,11 +399,11 @@ if (setgid(SERVICE_GID) == -1 || setuid(SERVICE_UID) == -1)
 
 Verify: `pidin -p <service> arg  # on target: confirm non-root uid`
 
-### 10. Replace systemd supervision with startup script + HAM
+### 10. Replace systemd supervision with startup script + procmgr death notifications
 
-*reliability_security · effort M · qcc snippet check: skipped*
+*reliability_security · effort M · qcc snippet check: failed*
 
-Launch from the image startup script and add a HAM heartbeat.
+Daemonize with procmgr_daemon() and register PROCMGR_EVENT_DAEMON_DEATH pulse notifications (or attach to HAM if installed).
 
 Before:
 
@@ -420,18 +419,20 @@ fi
 After:
 
 ```c
-#include <ha/ham.h>
+#include <sys/procmgr.h>
+#include <sys/siginfo.h>
 
-ham_entity_t *e = ham_attach_self("motor_pid", 500000000ULL /* 0.5 s */, 4, 8, 0);
-/* in the loop */
-ham_heartbeat();
+struct sigevent ev;
+SIGEV_PULSE_INIT(&ev, main_coid, 20, PULSE_CODE_SHUTDOWN, 0);
+int handle = procmgr_event_notify_add(PROCMGR_EVENT_DAEMON_DEATH, &ev);
+(void)handle;
 ```
 
-Verify: `ls /proc/ham  # on target, HAM running`
+Verify: `pidin -F '%a %b %N'  # on target, confirm supervised daemon running`
 
 ### 11. Optionally switch to slog2
 
-*reliability_security · effort S · qcc snippet check: skipped*
+*reliability_security · effort S · qcc snippet check: failed*
 
 Register a slog2 buffer set at start-up and route log calls through slog2f().
 

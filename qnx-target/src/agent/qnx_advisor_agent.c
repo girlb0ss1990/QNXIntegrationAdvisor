@@ -31,8 +31,8 @@
 #include <unistd.h>
 
 #include <devctl.h>
-#include <sys/dispatch.h>
 #include <sys/iofunc.h>
+#include <sys/dispatch.h>
 #include <sys/neutrino.h>
 #include <sys/procmgr.h>
 #include <sys/slog2.h>

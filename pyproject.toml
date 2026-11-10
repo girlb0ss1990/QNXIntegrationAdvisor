@@ -15,8 +15,9 @@ dependencies = [
   "pydantic>=2.6",
   "jinja2>=3.1",
   "pyyaml>=6.0",
-  "tree-sitter==0.21.3",
-  "tree-sitter-languages==1.10.2",
+  "tree-sitter>=0.21.3",
+  "tree-sitter-c>=0.21.0",
+  "tree-sitter-cpp>=0.21.0",
 ]
 
 [project.optional-dependencies]

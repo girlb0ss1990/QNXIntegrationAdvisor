@@ -3,7 +3,7 @@
  "repo_url": "samples/can-telemetry-daemon",
  "commit_sha": "local",
  "mode": "M1",
- "sdp_version": null,
+ "sdp_version": "8.0.0",
  "languages": [
   "C"
  ],
@@ -11,13 +11,13 @@
   "Make"
  ],
  "readiness_score": 0,
- "summary": "14 finding(s) across 3 file(s): 2 blocker, 3 high, 7 medium, 1 low, 1 info. Availability was judged against QNX 8.0 (no SDP found, unverified). Detected roles: device service, daemon, ipc server. Recommended shape on QNX: a /dev/candaemon resource manager driven by a pulse timer. Readiness score 0/100 (deterministic formula).",
+ "summary": "14 finding(s) across 3 file(s): 2 blocker, 3 high, 7 medium, 1 low, 1 info. 5 rule(s) depend on APIs missing from your QNX SDP 8.0.0 sysroot. Detected roles: device service, daemon, ipc server. Recommended shape on QNX: a /dev/candaemon resource manager driven by a pulse timer. Readiness score 0/100 (deterministic formula).",
  "findings": [
   {
    "rule_id": "LNX-EPOLL",
    "title": "epoll event loop",
    "severity": "blocker",
-   "sysroot_status": "unknown_no_sdp",
+   "sysroot_status": "missing",
    "locations": [
     {
      "file_path": "src/candaemon.c",
@@ -67,13 +67,13 @@
     }
    ],
    "link_libs": [],
-   "sysroot_detail": "No SDP index: assumed missing on QNX 8.0 (unverified)"
+   "sysroot_detail": "epoll_wait: not exported by any sysroot library; <sys/epoll.h> not in sysroot"
   },
   {
    "rule_id": "LNX-SOCKETCAN",
    "title": "SocketCAN",
    "severity": "blocker",
-   "sysroot_status": "unknown_no_sdp",
+   "sysroot_status": "missing",
    "locations": [
     {
      "file_path": "src/candaemon.c",
@@ -125,13 +125,13 @@
     }
    ],
    "link_libs": [],
-   "sysroot_detail": "No SDP index: assumed missing on QNX 8.0 (unverified)"
+   "sysroot_detail": "<linux/can.h> not in sysroot"
   },
   {
    "rule_id": "LNX-EVENTFD",
    "title": "eventfd notifier",
    "severity": "high",
-   "sysroot_status": "unknown_no_sdp",
+   "sysroot_status": "missing",
    "locations": [
     {
      "file_path": "src/candaemon.c",
@@ -170,13 +170,13 @@
     }
    ],
    "link_libs": [],
-   "sysroot_detail": "No SDP index: assumed missing on QNX 8.0 (unverified)"
+   "sysroot_detail": "eventfd: not exported by any sysroot library; <sys/eventfd.h> not in sysroot"
   },
   {
    "rule_id": "LNX-PRCTL-CAPS",
    "title": "Root-only daemon / Linux capabilities",
    "severity": "high",
-   "sysroot_status": "unknown_no_sdp",
+   "sysroot_status": "available",
    "locations": [
     {
      "file_path": "candaemon.service",
@@ -205,7 +205,7 @@
    "rule_id": "LNX-SIGNALFD",
    "title": "signalfd",
    "severity": "high",
-   "sysroot_status": "unknown_no_sdp",
+   "sysroot_status": "missing",
    "locations": [
     {
      "file_path": "src/candaemon.c",
@@ -240,13 +240,13 @@
     }
    ],
    "link_libs": [],
-   "sysroot_detail": "No SDP index: assumed missing on QNX 8.0 (unverified)"
+   "sysroot_detail": "signalfd: not exported by any sysroot library; <sys/signalfd.h> not in sysroot"
   },
   {
    "rule_id": "BLD-COMPILER",
    "title": "Host-only compiler settings",
    "severity": "medium",
-   "sysroot_status": "unknown_no_sdp",
+   "sysroot_status": "available",
    "locations": [
     {
      "file_path": "Makefile",
@@ -271,7 +271,7 @@
    "rule_id": "LNX-FORK",
    "title": "fork() in a multithreaded program",
    "severity": "medium",
-   "sysroot_status": "unknown_no_sdp",
+   "sysroot_status": "available",
    "locations": [
     {
      "file_path": "src/candaemon.c",
@@ -300,7 +300,7 @@
    "rule_id": "LNX-IOCTL",
    "title": "ioctl on device descriptors",
    "severity": "medium",
-   "sysroot_status": "unknown_no_sdp",
+   "sysroot_status": "available",
    "locations": [
     {
      "file_path": "src/candaemon.c",
@@ -332,7 +332,7 @@
    "rule_id": "LNX-LIBS",
    "title": "Linux-only link libraries",
    "severity": "medium",
-   "sysroot_status": "unknown_no_sdp",
+   "sysroot_status": "missing",
    "locations": [
     {
      "file_path": "Makefile",
@@ -355,13 +355,13 @@
     }
    ],
    "link_libs": [],
-   "sysroot_detail": "No SDP index: assumed missing on QNX 8.0 (unverified)"
+   "sysroot_detail": "not in sysroot lib dirs: libpthread, librt (provided by libc on QNX)"
   },
   {
    "rule_id": "LNX-PROCFS",
    "title": "Linux /proc paths",
    "severity": "medium",
-   "sysroot_status": "unknown_no_sdp",
+   "sysroot_status": "available",
    "locations": [
     {
      "file_path": "src/candaemon.c",
@@ -390,7 +390,7 @@
    "rule_id": "LNX-SOCKLIB",
    "title": "BSD sockets without libsocket",
    "severity": "medium",
-   "sysroot_status": "unknown_no_sdp",
+   "sysroot_status": "available",
    "locations": [
     {
      "file_path": "src/candaemon.c",
@@ -437,13 +437,13 @@
    "link_libs": [
     "socket"
    ],
-   "sysroot_detail": "No SDP index: assumed available on QNX 8.0 (unverified)"
+   "sysroot_detail": "socket: libsocket"
   },
   {
    "rule_id": "LNX-SYSTEMD",
    "title": "systemd unit / watchdog script",
    "severity": "medium",
-   "sysroot_status": "unknown_no_sdp",
+   "sysroot_status": "available",
    "locations": [
     {
      "file_path": "candaemon.service",
@@ -453,16 +453,18 @@
     }
    ],
    "already_guarded": false,
-   "guidance": "QNX targets have no systemd. Start the service from the image's startup script (or SLM where available), and use HAM (High Availability Manager) for restart policies: the service attaches with ham_attach_self() and sends ham_heartbeat(); HAM restarts it when heartbeats stop or it dies. Use only HAM APIs present in your sysroot (several *_control() calls were removed in 8.0.1).",
+   "guidance": "QNX targets have no systemd. Start the service from the image's startup script (or SLM where available), daemonize with procmgr_daemon(), and supervise daemon processes using procmgr_event_notify_add(PROCMGR_EVENT_DAEMON_DEATH, ...) (or HAM where the optional High Availability package is installed).",
    "alternatives": [
     {
      "kind": "qnx_native",
      "apis": [
-      "ham_attach_self",
-      "ham_heartbeat",
-      "ham_detach_self"
+      "procmgr_daemon",
+      "procmgr_event_notify_add",
+      "PROCMGR_EVENT_DAEMON_DEATH",
+      "posix_spawn",
+      "waitid"
      ],
-     "note": "Heartbeat-based supervision with restart actions."
+     "note": "Process manager daemon death notifications and supervisor restart loop."
     }
    ],
    "link_libs": [],
@@ -472,7 +474,7 @@
    "rule_id": "LNX-PERIODIC-SLEEP",
    "title": "sleep-based periodic loop",
    "severity": "low",
-   "sysroot_status": "unknown_no_sdp",
+   "sysroot_status": "available",
    "locations": [
     {
      "file_path": "src/candaemon.c",
@@ -509,7 +511,7 @@
    "rule_id": "LNX-LOG",
    "title": "syslog logging",
    "severity": "info",
-   "sysroot_status": "unknown_no_sdp",
+   "sysroot_status": "available",
    "locations": [
     {
      "file_path": "src/candaemon.c",
@@ -596,7 +598,7 @@
    "rationale": "`src/candaemon.c` multiplexes timers, notifications and I/O in a Linux event loop. A QNX channel replaces it: each source sends a pulse with its own code and priority, and a single receive call hands them to the thread in priority order.",
    "relevance": 5,
    "diagram_mermaid": "flowchart LR\n  TM[\"timer_create, SIGEV_PULSE\"] -->|\"code TIMER, prio 30\"| CH((\"channel\"))\n  W[\"worker thread\"] -->|\"MsgSendPulse, code FLUSH\"| CH\n  IO[\"ionotify on fd\"] -->|\"code IO\"| CH\n  CH --> L[\"MsgReceivePulse loop\"]",
-   "verified_in_sysroot": false
+   "verified_in_sysroot": true
   },
   {
    "feature": "resource_manager",
@@ -619,7 +621,7 @@
    "rationale": "`src/candaemon.c` owns a device and a processing loop. On QNX that is naturally a resource manager: it registers /dev/candaemon in the path space, clients use plain open/read/ write/devctl, and every request arrives as a message that inherits the client's priority. Device access moves out of client code into one process that can be restarted on its own.",
    "relevance": 5,
    "diagram_mermaid": "flowchart LR\n  C1[\"client: open + devctl\"] -->|\"MsgSend, client priority\"| R[\"/dev/candaemon resource manager\"]\n  T[\"timer pulse\"] --> R\n  R --> D[\"device driver resmgr\"]",
-   "verified_in_sysroot": false
+   "verified_in_sysroot": true
   },
   {
    "feature": "procmgr_ability",
@@ -634,7 +636,7 @@
    "rationale": "`candaemon.service` runs as root throughout. procmgr_ability() keeps only the abilities the service still needs after start-up and locks the rest before dropping to a service user.",
    "relevance": 4,
    "diagram_mermaid": null,
-   "verified_in_sysroot": false
+   "verified_in_sysroot": true
   },
   {
    "feature": "secpol",
@@ -644,23 +646,27 @@
    "rationale": "The same least-privilege intent can be written as a secpol policy for candaemon, so the system integrator controls abilities without changing code.",
    "relevance": 4,
    "diagram_mermaid": null,
-   "verified_in_sysroot": false
+   "verified_in_sysroot": true
   },
   {
    "feature": "ham",
    "apis": [
-    "ham_attach_self",
-    "ham_heartbeat",
-    "ham_detach_self"
+    "procmgr_daemon",
+    "procmgr_event_notify_add",
+    "PROCMGR_EVENT_DAEMON_DEATH",
+    "posix_spawn",
+    "waitid"
    ],
    "headers": [
-    "ha/ham.h"
+    "sys/procmgr.h",
+    "spawn.h",
+    "sys/wait.h"
    ],
    "target_component": "candaemon.service",
-   "rationale": "`candaemon.service` relies on systemd or scripts for restarts. HAM supervises the process from outside its address space; with a heartbeat it also catches a hung process, not only a dead one.",
+   "rationale": "`candaemon.service` relies on systemd or scripts for restarts. On QNX 8.0, procmgr_daemon() and procmgr_event_notify_add(PROCMGR_EVENT_DAEMON_DEATH) notify a guardian via kernel pulse immediately on process termination (or use HAM when the optional HA package is installed).",
    "relevance": 3,
-   "diagram_mermaid": "flowchart LR\n  S[\"candaemon\"] -->|\"ham_heartbeat every 0.5 s\"| H[\"HAM\"]\n  H -->|\"missed heartbeats or death\"| A[\"restart action\"]\n  A --> S",
-   "verified_in_sysroot": false
+   "diagram_mermaid": "flowchart LR\n  S[\"candaemon daemon\"] -->|\"PROCMGR_EVENT_DAEMON_DEATH pulse\"| G[\"procmgr / guardian\"]\n  G -->|\"posix_spawn restart\"| S",
+   "verified_in_sysroot": true
   },
   {
    "feature": "slog2",
@@ -675,7 +681,7 @@
    "rationale": "`src/candaemon.c` logs through syslog. slog2 gives per-buffer verbosity and very low overhead in time-critical paths, and slog2info reads the buffers on the target.",
    "relevance": 1,
    "diagram_mermaid": null,
-   "verified_in_sysroot": false
+   "verified_in_sysroot": true
   }
  ],
  "pillar2_improvements": [
@@ -849,7 +855,7 @@
      "snippet": "[Unit]\nDescription=CAN telemetry aggregation daemon\nAfter=sys-subsystem-net-devices-can0.device\n\n[Service]\nType=forking\nExecStart=/usr/local/sbin/candaemon can0\nRestart=on-failure\nUser=root\n\n[Install]\nWantedBy=multi-user.target"
     }
    ],
-   "qnx_improvement": "HAM supervises the process from a separate address space and restarts it on death or missed heartbeats.",
+   "qnx_improvement": "procmgr_event_notify_add(PROCMGR_EVENT_DAEMON_DEATH) delivers a kernel pulse the instant a supervised daemon terminates so a lightweight guardian or HAM can respawn it.",
    "evidence_type": "static",
    "measurement_ref": null
   },
@@ -935,7 +941,7 @@
    ],
    "explanation": "Cross-compile with the kit's toolchain file (qcc/q++ with -V gcc_nto<arch>). Changes needed: Host-only compiler settings: Source qnxsdp-env.sh, then configure with the kit's toolchain file. Linux-only link libraries: Use Threads::Threads and drop -lrt/-ldl where the sysroot has no such library. BSD sockets without libsocket: Add socket to the QNX link libraries.",
    "before_code": "CC      ?= gcc\nLDLIBS  = -lpthread -lrt",
-   "after_code": "# Add to can-telemetry-daemon's CMakeLists.txt after the target \"candaemon\" is defined:\n#   include(cmake/qnx8.cmake)\n\nif(CMAKE_SYSTEM_NAME STREQUAL \"QNX\")\n  target_compile_definitions(candaemon PRIVATE _QNX_SOURCE)\n  target_include_directories(candaemon PRIVATE ${CMAKE_CURRENT_LIST_DIR}/../include)\n  # From the sysroot audit: socket (BSD sockets without libsocket)\n  target_link_libraries(candaemon socket)\n  # On QNX these functions are normally in libc (unverified: no SDP was indexed):\n  #   pthread, rt  -> remove them from target_link_libraries for QNX builds.\nendif()",
+   "after_code": "# Add to can-telemetry-daemon's CMakeLists.txt after the target \"candaemon\" is defined:\n#   include(cmake/qnx8.cmake)\n\nif(CMAKE_SYSTEM_NAME STREQUAL \"QNX\")\n  target_compile_definitions(candaemon PRIVATE _QNX_SOURCE)\n  target_include_directories(candaemon PRIVATE ${CMAKE_CURRENT_LIST_DIR}/../include)\n  # From the sysroot audit: socket (BSD sockets without libsocket)\n  target_link_libraries(candaemon socket)\n  # These libraries do not exist in your QNX sysroot (their functions are in libc):\n  #   pthread, rt  -> remove them from target_link_libraries for QNX builds.\nendif()",
    "qcc_syntax_check": "skipped",
    "verify_command": "cmake -B build-qnx -DCMAKE_TOOLCHAIN_FILE=cmake/qnx8-toolchain.cmake -DQNX_ARCH=x86_64 && cmake --build build-qnx",
    "est_effort": "S"
@@ -950,7 +956,7 @@
    "explanation": "Start with poll() so the code builds and runs on QNX. Once it works, consider moving to a channel + pulse loop (see the resource-manager step) where each event source has its own pulse code and priority.",
    "before_code": "/* src/candaemon.c */\nint ep = epoll_create1(EPOLL_CLOEXEC);\nint fds[] = { can, srv, flush_efd, sfd };\nfor (unsigned i = 0; i < sizeof fds / sizeof fds[0]; i++) {\n    struct epoll_event ev = { .events = EPOLLIN, .data.fd = fds[i] };\n    epoll_ctl(ep, EPOLL_CTL_ADD, fds[i], &ev);\n}",
    "after_code": "#include <poll.h>\n\nstruct pollfd pfd[2] = {\n    { .fd = tfd, .events = POLLIN },\n    { .fd = cfd, .events = POLLIN },\n};\nint n = poll(pfd, 2, -1);\nif (n > 0 && (pfd[0].revents & POLLIN)) {\n    /* periodic work */\n}",
-   "qcc_syntax_check": "skipped",
+   "qcc_syntax_check": "failed",
    "verify_command": "qcc -Vgcc_ntox86_64 -fsyntax-only src/main.c",
    "est_effort": "M"
   },
@@ -964,7 +970,7 @@
    "explanation": "Define can_hal_open/can_hal_read/can_hal_close. Keep the SocketCAN backend for Linux. The QNX backend opens the CAN driver's device path and uses the driver's devctl commands; fill in the DCMD_* values from the driver you deploy.",
    "before_code": "/* src/candaemon.c */\n{\n    int s = socket(PF_CAN, SOCK_RAW, CAN_RAW);\n    if (s < 0) { syslog(LOG_ERR, \"socket(PF_CAN): %m\"); return -1; }\n/* ... */\nstruct sockaddr_can addr = { .can_family = AF_CAN, .can_ifindex = ifr.ifr_ifindex };\nif (bind(s, (struct sockaddr *)&addr, sizeof addr) < 0) { syslog(LOG_ERR, \"bind: %m\"); return -1; }\nreturn s;",
    "after_code": "/* can_hal.h */\ntypedef struct { uint32_t id; uint8_t dlc; uint8_t data[8]; } can_hal_frame_t;\nint  can_hal_open(const char *channel);           /* \"can0\" or \"/dev/can1/rx0\" */\nint  can_hal_read(int h, can_hal_frame_t *f);     /* blocking read */\nvoid can_hal_close(int h);",
-   "qcc_syntax_check": "skipped",
+   "qcc_syntax_check": "failed",
    "verify_command": "qcc -Vgcc_ntox86_64 -fsyntax-only src/can_hal_qnx.c",
    "est_effort": "L"
   },
@@ -978,7 +984,7 @@
    "explanation": "Create the notifier with the qnx_compat.h shim from the porting kit. On QNX it sends a pulse to the loop's channel; elsewhere it falls back to a pipe.",
    "before_code": "/* src/candaemon.c */\nflush_efd = eventfd(0, EFD_NONBLOCK);\npthread_t th;\npthread_create(&th, NULL, flusher, NULL);",
    "after_code": "#include \"qnx_compat.h\"\n\nqnx_notifier_t n;\nqnx_notifier_init(&n, chid, PULSE_CODE_FLUSH);\nqnx_notifier_signal(&n, 1);        /* MsgSendPulse under the hood */",
-   "qcc_syntax_check": "skipped",
+   "qcc_syntax_check": "failed",
    "verify_command": "qcc -Vgcc_ntox86_64 -fsyntax-only -Iinclude src/main.c",
    "est_effort": "S"
   },
@@ -992,7 +998,7 @@
    "explanation": "Block SIGTERM/SIGINT before creating threads, then wait for them in one thread.",
    "before_code": "/* src/candaemon.c */\nsigprocmask(SIG_BLOCK, &mask, NULL);\nint sfd = signalfd(-1, &mask, SFD_NONBLOCK);\n\nint ep = epoll_create1(EPOLL_CLOEXEC);",
    "after_code": "static void *signal_thread(void *arg)\n{\n    sigset_t *mask = arg;\n    siginfo_t si;\n    if (sigwaitinfo(mask, &si) > 0)\n        MsgSendPulse(main_coid, -1, PULSE_CODE_SHUTDOWN, si.si_signo);\n    return NULL;\n}\n/* in main(): pthread_sigmask(SIG_BLOCK, &mask, NULL); pthread_create(...) */",
-   "qcc_syntax_check": "skipped",
+   "qcc_syntax_check": "failed",
    "verify_command": "qcc -Vgcc_ntox86_64 -fsyntax-only src/main.c",
    "est_effort": "S"
   },
@@ -1006,7 +1012,7 @@
    "explanation": "Use posix_spawn(); for daemonizing, let the startup script background the process instead.",
    "before_code": "/* src/candaemon.c */\n{\n    pid_t pid = fork();\n    if (pid < 0) exit(1);\n    if (pid > 0) exit(0);",
    "after_code": "#include <spawn.h>\n\nextern char **environ;\npid_t pid;\nchar *const argv[] = { (char *)path, arg, NULL };\nint rc = posix_spawn(&pid, path, NULL, NULL, argv, environ);",
-   "qcc_syntax_check": "skipped",
+   "qcc_syntax_check": "failed",
    "verify_command": "qcc -Vgcc_ntox86_64 -fsyntax-only src/main.c",
    "est_effort": "S"
   },
@@ -1020,7 +1026,7 @@
    "explanation": "Move ioctl() calls behind functions such as hal_set_line(); implement the QNX side with devctl().",
    "before_code": "/* src/candaemon.c */\nifr.ifr_name[IFNAMSIZ - 1] = '\\0';\nif (ioctl(s, SIOCGIFINDEX, &ifr) < 0) { syslog(LOG_ERR, \"SIOCGIFINDEX: %m\"); return -1; }\n\nstruct sockaddr_can addr = { .can_family = AF_CAN, .can_ifindex = ifr.ifr_ifindex };",
    "after_code": "/* hal.h */\nint hal_serial_set_dtr(int fd, int on);\n\n/* hal_qnx.c */\n#include <devctl.h>\n#include <sys/dcmd_chr.h>\nint hal_serial_set_dtr(int fd, int on)\n{\n    int bits = on ? (_SERCTL_DTR | _SERCTL_DTR_CHG) : _SERCTL_DTR_CHG;\n    return devctl(fd, DCMD_CHR_SERCTL, &bits, sizeof bits, NULL);\n}",
-   "qcc_syntax_check": "skipped",
+   "qcc_syntax_check": "failed",
    "verify_command": "qcc -Vgcc_ntox86_64 -fsyntax-only src/hal_qnx.c",
    "est_effort": "M"
   },
@@ -1034,7 +1040,7 @@
    "explanation": "Use DCMD_PROC_INFO on /proc/self/as instead of parsing text files.",
    "before_code": "/* src/candaemon.c */\n{\n    FILE *f = fopen(\"/proc/self/statm\", \"r\");\n    long pages = 0, resident = 0;\n    if (f) { fscanf(f, \"%ld %ld\", &pages, &resident); fclose(f); }",
    "after_code": "#include <sys/procfs.h>\n#include <devctl.h>\n\nint fd = open(\"/proc/self/as\", O_RDONLY);\nprocfs_info info;\nif (fd >= 0 && devctl(fd, DCMD_PROC_INFO, &info, sizeof info, NULL) == EOK) {\n    /* info.pid, info.num_threads, ... */\n}",
-   "qcc_syntax_check": "skipped",
+   "qcc_syntax_check": "failed",
    "verify_command": "qcc -Vgcc_ntox86_64 -fsyntax-only src/main.c",
    "est_effort": "S"
   },
@@ -1049,7 +1055,7 @@
    "explanation": "Start from the kit's resource-manager skeleton. Clients open /dev/candaemon and use read(), write() and devctl() instead of a private socket or shared memory. The periodic work moves into the timer pulse handler, which runs serialized with client requests in one thread.",
    "before_code": null,
    "after_code": "static int io_devctl(resmgr_context_t *ctp, io_devctl_t *msg, RESMGR_OCB_T *ocb)\n{\n    int status = iofunc_devctl_default(ctp, msg, ocb);\n    if (status != _RESMGR_DEFAULT)\n        return status;\n\n    void  *data = _DEVCTL_DATA(msg->i);\n    size_t nbytes = 0;\n\n    switch (msg->i.dcmd) {\n    case DCMD_CANDAEMON_GET_STATUS:\n        if (msg->i.nbytes < sizeof(state.status))\n            return EINVAL;\n        memcpy(data, &state.status, sizeof(state.status));\n        nbytes = sizeof(state.status);\n        break;\n    case DCMD_CANDAEMON_SET_VALUE: {\n        int32_t v;\n        if (msg->i.nbytes < sizeof v)\n            return EINVAL;\n        if (resmgr_msgread(ctp, &v, sizeof v, sizeof msg->i) != (ssize_t)sizeof v)\n            return EFAULT;\n        state.status.value = v;\n        break;\n    }\n    default:\n        return ENOSYS;\n    }\n\n    memset(&msg->o, 0, sizeof msg->o);\n    msg->o.ret_val = EOK;\n    msg->o.nbytes = (uint32_t)nbytes;\n    return _RESMGR_PTR(ctp, &msg->o, sizeof msg->o + nbytes);\n}",
-   "qcc_syntax_check": "skipped",
+   "qcc_syntax_check": "failed",
    "verify_command": "ls -l /dev/candaemon && candaemonctl  # on the target",
    "est_effort": "L"
   },
@@ -1063,7 +1069,7 @@
    "explanation": "Replace relative sleeps in periodic loops with clock_nanosleep(TIMER_ABSTIME).",
    "before_code": "/* src/candaemon.c */\nfor (;;) {\n    sleep(1);\n    uint64_t one = 1;\n    write(flush_efd, &one, sizeof one);",
    "after_code": "struct timespec next;\nclock_gettime(CLOCK_MONOTONIC, &next);\nfor (;;) {\n    do_work();\n    next.tv_nsec += PERIOD_NS;\n    while (next.tv_nsec >= 1000000000L) { next.tv_nsec -= 1000000000L; next.tv_sec++; }\n    clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &next, NULL);\n}",
-   "qcc_syntax_check": "skipped",
+   "qcc_syntax_check": "failed",
    "verify_command": "qcc -Vgcc_ntox86_64 -fsyntax-only src/main.c",
    "est_effort": "S"
   },
@@ -1077,22 +1083,22 @@
    "explanation": "After privileged setup, allow the specific abilities the service still needs for the non-root domain, deny and lock everything else, then setuid() to a service user.",
    "before_code": "User=root",
    "after_code": "#include <sys/procmgr.h>\n\n/* after resmgr_attach()/open() of privileged resources: */\nif (procmgr_ability(0,\n        PROCMGR_ADN_NONROOT | PROCMGR_AOP_ALLOW | PROCMGR_AOP_LOCK | PROCMGR_AID_PRIORITY,\n        PROCMGR_ADN_NONROOT | PROCMGR_AOP_DENY  | PROCMGR_AOP_LOCK | PROCMGR_AID_EOL) != EOK) {\n    return 1;\n}\nif (setgid(SERVICE_GID) == -1 || setuid(SERVICE_UID) == -1)\n    return 1;",
-   "qcc_syntax_check": "skipped",
+   "qcc_syntax_check": "failed",
    "verify_command": "pidin -p <service> arg  # on target: confirm non-root uid",
    "est_effort": "M"
   },
   {
    "n": 12,
-   "title": "Replace systemd supervision with startup script + HAM",
+   "title": "Replace systemd supervision with startup script + procmgr death notifications",
    "category": "reliability_security",
    "affected_files": [
     "candaemon.service"
    ],
-   "explanation": "Launch from the image startup script and add a HAM heartbeat.",
+   "explanation": "Daemonize with procmgr_daemon() and register PROCMGR_EVENT_DAEMON_DEATH pulse notifications (or attach to HAM if installed).",
    "before_code": "[Unit]\nDescription=CAN telemetry aggregation daemon\nAfter=sys-subsystem-net-devices-can0.device\n\n[Service]\nType=forking\nExecStart=/usr/local/sbin/candaemon can0\nRestart=on-failure\nUser=root\n\n[Install]\nWantedBy=multi-user.target",
-   "after_code": "#include <ha/ham.h>\n\nham_entity_t *e = ham_attach_self(\"motor_pid\", 500000000ULL /* 0.5 s */, 4, 8, 0);\n/* in the loop */\nham_heartbeat();",
-   "qcc_syntax_check": "skipped",
-   "verify_command": "ls /proc/ham  # on target, HAM running",
+   "after_code": "#include <sys/procmgr.h>\n#include <sys/siginfo.h>\n\nstruct sigevent ev;\nSIGEV_PULSE_INIT(&ev, main_coid, 20, PULSE_CODE_SHUTDOWN, 0);\nint handle = procmgr_event_notify_add(PROCMGR_EVENT_DAEMON_DEATH, &ev);\n(void)handle;",
+   "qcc_syntax_check": "failed",
+   "verify_command": "pidin -F '%a %b %N'  # on target, confirm supervised daemon running",
    "est_effort": "M"
   },
   {
@@ -1105,7 +1111,7 @@
    "explanation": "Register a slog2 buffer set at start-up and route log calls through slog2f().",
    "before_code": "/* src/candaemon.c */\nint s = socket(PF_CAN, SOCK_RAW, CAN_RAW);\nif (s < 0) { syslog(LOG_ERR, \"socket(PF_CAN): %m\"); return -1; }\n\nstruct ifreq ifr;\nstrncpy(ifr.ifr_name, ifname, IFNAMSIZ - 1);\nifr.ifr_name[IFNAMSIZ - 1] = '\\0';\nif (ioctl(s, SIOCGIFINDEX, &ifr) < 0) { syslog(LOG_ERR, \"SIOCGIFINDEX: %m\"); return -1; }\n\nstruct sockaddr_can addr = { .can_family = AF_CAN, .can_ifindex = ifr.ifr_ifindex };",
    "after_code": "#include <sys/slog2.h>\n\nslog2_buffer_set_config_t cfg = {0};\nslog2_buffer_t buf;\ncfg.buffer_set_name = \"motor_pid\";\ncfg.num_buffers = 1;\ncfg.verbosity_level = SLOG2_INFO;\ncfg.buffer_config[0].buffer_name = \"main\";\ncfg.buffer_config[0].num_pages = 4;\nif (slog2_register(&cfg, &buf, 0) == 0)\n    slog2_set_default_buffer(buf);\nslog2f(NULL, 0, SLOG2_INFO, \"started, period=%d us\", 1000);",
-   "qcc_syntax_check": "skipped",
+   "qcc_syntax_check": "failed",
    "verify_command": "slog2info -b motor_pid  # on target",
    "est_effort": "S"
   },
@@ -1135,38 +1141,38 @@
   {
    "path": "cmake/qnx8.cmake",
    "description": "if(QNX) snippet to include from the repo's CMakeLists.txt",
-   "content": "# Add to can-telemetry-daemon's CMakeLists.txt after the target \"candaemon\" is defined:\n#   include(cmake/qnx8.cmake)\n\nif(CMAKE_SYSTEM_NAME STREQUAL \"QNX\")\n  target_compile_definitions(candaemon PRIVATE _QNX_SOURCE)\n  target_include_directories(candaemon PRIVATE ${CMAKE_CURRENT_LIST_DIR}/../include)\n  # From the sysroot audit: socket (BSD sockets without libsocket)\n  target_link_libraries(candaemon socket)\n  # On QNX these functions are normally in libc (unverified: no SDP was indexed):\n  #   pthread, rt  -> remove them from target_link_libraries for QNX builds.\nendif()\n",
+   "content": "# Add to can-telemetry-daemon's CMakeLists.txt after the target \"candaemon\" is defined:\n#   include(cmake/qnx8.cmake)\n\nif(CMAKE_SYSTEM_NAME STREQUAL \"QNX\")\n  target_compile_definitions(candaemon PRIVATE _QNX_SOURCE)\n  target_include_directories(candaemon PRIVATE ${CMAKE_CURRENT_LIST_DIR}/../include)\n  # From the sysroot audit: socket (BSD sockets without libsocket)\n  target_link_libraries(candaemon socket)\n  # These libraries do not exist in your QNX sysroot (their functions are in libc):\n  #   pthread, rt  -> remove them from target_link_libraries for QNX builds.\nendif()\n",
    "qcc_compiled": "not_applicable"
   },
   {
    "path": "include/qnx_compat.h",
    "description": "Only the compatibility shims this repo needs",
    "content": "/*\n * qnx_compat.h - generated by QNX Integration Advisor for can-telemetry-daemon.\n * Contains only the shims this repository needs:\n *   - qnx_periodic_timer_*: timerfd-like periodic timer (QNX: timer_create + pulse)\n *   - qnx_notifier_*: eventfd-like wake-up (QNX: pulse on a channel, else a pipe)\n * Licensed under Apache-2.0.\n */\n#ifndef QNX_COMPAT_H\n#define QNX_COMPAT_H\n\n#include <errno.h>\n#include <stdint.h>\n#include <time.h>\n#include <unistd.h>\n\n#ifdef __QNX__\n#include <sys/neutrino.h>\n#include <sys/siginfo.h>\n\n#ifdef _NTO_CHF_PRIVATE\n#define QNX_COMPAT_CHF _NTO_CHF_PRIVATE\n#else\n#define QNX_COMPAT_CHF 0\n#endif\n\n#define QNX_COMPAT_PULSE_TIMER   (_PULSE_CODE_MINAVAIL + 0)\n#endif /* __QNX__ */\n\n/* ------------------------------------------------------------------ periodic timer */\ntypedef struct {\n#ifdef __QNX__\n    int     chid;\n    int     coid;\n    timer_t timer;\n#else\n    int     fd;\n#endif\n} qnx_periodic_timer_t;\n\n#ifdef __QNX__\nstatic inline int qnx_periodic_timer_create(qnx_periodic_timer_t *t, uint64_t period_ns, int pulse_prio)\n{\n    struct sigevent   ev;\n    struct itimerspec its;\n\n    t->chid = ChannelCreate(QNX_COMPAT_CHF);\n    if (t->chid == -1)\n        return -1;\n    t->coid = ConnectAttach(0, 0, t->chid, _NTO_SIDE_CHANNEL, 0);\n    if (t->coid == -1) {\n        ChannelDestroy(t->chid);\n        return -1;\n    }\n    SIGEV_PULSE_INIT(&ev, t->coid, pulse_prio, QNX_COMPAT_PULSE_TIMER, 0);\n    if (timer_create(CLOCK_MONOTONIC, &ev, &t->timer) == -1) {\n        ConnectDetach(t->coid);\n        ChannelDestroy(t->chid);\n        return -1;\n    }\n    its.it_value.tv_sec  = (time_t)(period_ns / 1000000000ULL);\n    its.it_value.tv_nsec = (long)(period_ns % 1000000000ULL);\n    its.it_interval      = its.it_value;\n    if (timer_settime(t->timer, 0, &its, NULL) == -1) {\n        timer_delete(t->timer);\n        ConnectDetach(t->coid);\n        ChannelDestroy(t->chid);\n        return -1;\n    }\n    return 0;\n}\n\n/* Blocks until the next period. Other pulses on this private channel are ignored. */\nstatic inline int qnx_periodic_timer_wait(qnx_periodic_timer_t *t)\n{\n    struct _pulse p;\n    for (;;) {\n        if (MsgReceivePulse(t->chid, &p, sizeof p, NULL) == -1)\n            return -1;\n        if (p.code == QNX_COMPAT_PULSE_TIMER)\n            return 0;\n    }\n}\n\nstatic inline void qnx_periodic_timer_destroy(qnx_periodic_timer_t *t)\n{\n    timer_delete(t->timer);\n    ConnectDetach(t->coid);\n    ChannelDestroy(t->chid);\n}\n#else  /* Linux and other POSIX hosts keep the original timerfd behaviour */\n#include <sys/timerfd.h>\nstatic inline int qnx_periodic_timer_create(qnx_periodic_timer_t *t, uint64_t period_ns, int pulse_prio)\n{\n    struct itimerspec its;\n    (void)pulse_prio;\n    t->fd = timerfd_create(CLOCK_MONOTONIC, 0);\n    if (t->fd == -1)\n        return -1;\n    its.it_value.tv_sec  = (time_t)(period_ns / 1000000000ULL);\n    its.it_value.tv_nsec = (long)(period_ns % 1000000000ULL);\n    its.it_interval      = its.it_value;\n    return timerfd_settime(t->fd, 0, &its, NULL);\n}\n\nstatic inline int qnx_periodic_timer_wait(qnx_periodic_timer_t *t)\n{\n    uint64_t exp;\n    return read(t->fd, &exp, sizeof exp) == (ssize_t)sizeof exp ? 0 : -1;\n}\n\nstatic inline void qnx_periodic_timer_destroy(qnx_periodic_timer_t *t)\n{\n    close(t->fd);\n}\n#endif\n\n/* ------------------------------------------------------------------ notifier */\ntypedef struct {\n#ifdef __QNX__\n    int coid;\n    int code;\n#else\n    int fds[2];\n#endif\n} qnx_notifier_t;\n\n#ifdef __QNX__\n/* chid: the receiving loop's channel. code: a pulse code >= _PULSE_CODE_MINAVAIL. */\nstatic inline int qnx_notifier_init(qnx_notifier_t *n, int chid, int code)\n{\n    n->code = code;\n    n->coid = ConnectAttach(0, 0, chid, _NTO_SIDE_CHANNEL, 0);\n    return n->coid == -1 ? -1 : 0;\n}\n\nstatic inline int qnx_notifier_signal(qnx_notifier_t *n, int value)\n{\n    return MsgSendPulse(n->coid, -1, n->code, value);   /* -1: sender's priority */\n}\n\nstatic inline void qnx_notifier_destroy(qnx_notifier_t *n)\n{\n    ConnectDetach(n->coid);\n}\n#else\n#include <fcntl.h>\nstatic inline int qnx_notifier_init(qnx_notifier_t *n, int chid, int code)\n{\n    (void)chid; (void)code;\n    if (pipe(n->fds) == -1)\n        return -1;\n    return fcntl(n->fds[1], F_SETFL, O_NONBLOCK);\n}\n\nstatic inline int qnx_notifier_signal(qnx_notifier_t *n, int value)\n{\n    unsigned char b = (unsigned char)value;\n    return write(n->fds[1], &b, 1) == 1 ? 0 : -1;\n}\n\nstatic inline void qnx_notifier_destroy(qnx_notifier_t *n)\n{\n    close(n->fds[0]);\n    close(n->fds[1]);\n}\n#endif\n\n#endif /* QNX_COMPAT_H */\n",
-   "qcc_compiled": "skipped"
+   "qcc_compiled": "both"
   },
   {
    "path": "src/qnx_candaemon_resmgr.c",
    "description": "Resource manager skeleton at /dev/candaemon (dispatch/iofunc, pulse timer, procmgr_ability)",
-   "content": "/*\n * qnx_candaemon_resmgr.c - single-threaded QNX 8.0 resource manager skeleton at /dev/candaemon.\n * Generated by QNX Integration Advisor for can-telemetry-daemon. Apache-2.0.\n *\n *   read()   -> text status line\n *   write()  -> sets an integer value (e.g. a setpoint)\n *   devctl() -> DCMD_CANDAEMON_GET_STATUS / DCMD_CANDAEMON_SET_VALUE (candaemon_dcmd.h)\n *   periodic timer pulse (pulse_attach) -> tick_handler(), where the repo's loop body goes\n *\n * Build:  qcc -Vgcc_ntox86_64 -Wall -Wextra -Werror -Iinclude -Isrc -o candaemon_resmgr src/qnx_candaemon_resmgr.c\n * Run:    candaemon_resmgr -p 100 -u 1000 &      (starts as root, drops to uid 1000)\n */\n#include <errno.h>\n#include <fcntl.h>\n#include <stdint.h>\n#include <stdio.h>\n#include <stdlib.h>\n#include <string.h>\n#include <time.h>\n#include <unistd.h>\n\n#include <devctl.h>\n#include <sys/dispatch.h>\n#include <sys/iofunc.h>\n#include <sys/neutrino.h>\n#include <sys/procmgr.h>\n#include <sys/stat.h>\n\n#include \"candaemon_dcmd.h\"\n\ntypedef struct {\n    /* TODO: embed the repository's main state (can_stats_t from src/stats.h) here. */\n    candaemon_status_t status;\n} service_state_t;\n\nstatic service_state_t        state;\nstatic resmgr_connect_funcs_t connect_funcs;\nstatic resmgr_io_funcs_t      io_funcs;\nstatic iofunc_attr_t          dev_attr;\nstatic char                   read_buf[128];\n\n/* ------------------------------------------------------------------ read() */\nstatic int io_read(resmgr_context_t *ctp, io_read_t *msg, RESMGR_OCB_T *ocb)\n{\n    int status = iofunc_read_verify(ctp, msg, ocb, NULL);\n    if (status != EOK)\n        return status;\n    if ((msg->i.xtype & _IO_XTYPE_MASK) != _IO_XTYPE_NONE)\n        return ENOSYS;\n\n    if (ocb->offset == 0) {\n        int n = snprintf(read_buf, sizeof read_buf, \"value=%d ticks=%llu\\n\",\n                         (int)state.status.value, (unsigned long long)state.status.ticks);\n        if (n < 0)\n            return EIO;\n    }\n    size_t len = strlen(read_buf);\n    size_t nbytes = 0;\n    if (ocb->offset >= 0 && (size_t)ocb->offset < len) {\n        nbytes = len - (size_t)ocb->offset;\n        if (nbytes > (size_t)_IO_READ_GET_NBYTES(msg))\n            nbytes = (size_t)_IO_READ_GET_NBYTES(msg);\n    }\n    _IO_SET_READ_NBYTES(ctp, nbytes);\n    if (nbytes == 0)\n        return _RESMGR_NPARTS(0);\n    SETIOV(ctp->iov, read_buf + ocb->offset, nbytes);\n    ocb->offset += (off_t)nbytes;\n    ocb->attr->flags |= IOFUNC_ATTR_ATIME;\n    return _RESMGR_NPARTS(1);\n}\n\n/* ------------------------------------------------------------------ write() */\nstatic int io_write(resmgr_context_t *ctp, io_write_t *msg, RESMGR_OCB_T *ocb)\n{\n    int status = iofunc_write_verify(ctp, msg, ocb, NULL);\n    if (status != EOK)\n        return status;\n    if ((msg->i.xtype & _IO_XTYPE_MASK) != _IO_XTYPE_NONE)\n        return ENOSYS;\n\n    size_t nbytes = (size_t)_IO_WRITE_GET_NBYTES(msg);\n    char   buf[32];\n    size_t want = nbytes < sizeof buf - 1 ? nbytes : sizeof buf - 1;\n    ssize_t got = resmgr_msgread(ctp, buf, want, sizeof msg->i);\n    if (got == -1)\n        return errno;\n    buf[got] = '\\0';\n    state.status.value = (int32_t)strtol(buf, NULL, 10);   /* TODO: parse the repo's command format */\n\n    _IO_SET_WRITE_NBYTES(ctp, nbytes);\n    if (nbytes > 0)\n        ocb->attr->flags |= IOFUNC_ATTR_MTIME | IOFUNC_ATTR_CTIME;\n    return EOK;\n}\n\n/* ------------------------------------------------------------------ devctl() */\nstatic int io_devctl(resmgr_context_t *ctp, io_devctl_t *msg, RESMGR_OCB_T *ocb)\n{\n    int status = iofunc_devctl_default(ctp, msg, ocb);\n    if (status != _RESMGR_DEFAULT)\n        return status;\n\n    void  *data = _DEVCTL_DATA(msg->i);\n    size_t nbytes = 0;\n\n    switch (msg->i.dcmd) {\n    case DCMD_CANDAEMON_GET_STATUS:\n        if (msg->i.nbytes < sizeof(state.status))\n            return EINVAL;\n        memcpy(data, &state.status, sizeof(state.status));\n        nbytes = sizeof(state.status);\n        break;\n    case DCMD_CANDAEMON_SET_VALUE: {\n        int32_t v;\n        if (msg->i.nbytes < sizeof v)\n            return EINVAL;\n        if (resmgr_msgread(ctp, &v, sizeof v, sizeof msg->i) != (ssize_t)sizeof v)\n            return EFAULT;\n        state.status.value = v;\n        break;\n    }\n    default:\n        return ENOSYS;\n    }\n\n    memset(&msg->o, 0, sizeof msg->o);\n    msg->o.ret_val = EOK;\n    msg->o.nbytes = (uint32_t)nbytes;\n    return _RESMGR_PTR(ctp, &msg->o, sizeof msg->o + nbytes);\n}\n\n/* ------------------------------------------------------------------ timer pulse */\nstatic int tick_handler(message_context_t *ctp, int code, unsigned flags, void *handle)\n{\n    (void)ctp; (void)code; (void)flags; (void)handle;\n    state.status.ticks++;\n    /* TODO: move the body of can-telemetry-daemon's periodic loop here\n       (read inputs, compute, write outputs). It runs in the resmgr's single thread,\n       so it is serialized with client requests and needs no extra locking. */\n    return 0;\n}\n\nstatic int drop_privileges(uid_t uid)\n{\n    /* Path registration is done. Deny and lock every ability for the non-root domain,\n       then become that user. */\n    int rc = procmgr_ability(0, PROCMGR_ADN_NONROOT | PROCMGR_AOP_DENY | PROCMGR_AOP_LOCK | PROCMGR_AID_EOL);\n    if (rc != EOK) {\n        fprintf(stderr, \"procmgr_ability: %s\\n\", strerror(rc));\n        return -1;\n    }\n    if (setgid((gid_t)uid) == -1 || setuid(uid) == -1) {\n        perror(\"setuid\");\n        return -1;\n    }\n    return 0;\n}\n\nint main(int argc, char **argv)\n{\n    long period_ms = 100;\n    long run_uid = -1;\n    int  opt;\n    while ((opt = getopt(argc, argv, \"p:u:\")) != -1) {\n        switch (opt) {\n        case 'p': period_ms = strtol(optarg, NULL, 10); break;\n        case 'u': run_uid = strtol(optarg, NULL, 10); break;\n        default:\n            fprintf(stderr, \"usage: %s [-p period_ms] [-u uid]\\n\", argv[0]);\n            return EXIT_FAILURE;\n        }\n    }\n    if (period_ms <= 0)\n        period_ms = 100;\n\n    dispatch_t *dpp = dispatch_create();\n    if (dpp == NULL) {\n        perror(\"dispatch_create\");\n        return EXIT_FAILURE;\n    }\n\n    resmgr_attr_t rattr;\n    memset(&rattr, 0, sizeof rattr);\n    rattr.nparts_max = 1;\n    rattr.msg_max_size = 2048;\n\n    iofunc_func_init(_RESMGR_CONNECT_NFUNCS, &connect_funcs, _RESMGR_IO_NFUNCS, &io_funcs);\n    io_funcs.read = io_read;\n    io_funcs.write = io_write;\n    io_funcs.devctl = io_devctl;\n    iofunc_attr_init(&dev_attr, S_IFCHR | 0666, NULL, NULL);\n\n    if (resmgr_attach(dpp, &rattr, \"/dev/candaemon\", _FTYPE_ANY, 0, &connect_funcs, &io_funcs, &dev_attr) == -1) {\n        perror(\"resmgr_attach /dev/candaemon\");\n        return EXIT_FAILURE;\n    }\n\n    int code = pulse_attach(dpp, MSG_FLAG_ALLOC_PULSE, 0, tick_handler, NULL);\n    if (code == -1) {\n        perror(\"pulse_attach\");\n        return EXIT_FAILURE;\n    }\n    int coid = message_connect(dpp, MSG_FLAG_SIDE_CHANNEL);\n    if (coid == -1) {\n        perror(\"message_connect\");\n        return EXIT_FAILURE;\n    }\n    struct sigevent ev;\n    SIGEV_PULSE_INIT(&ev, coid, 21, code, 0);\n    timer_t timer;\n    if (timer_create(CLOCK_MONOTONIC, &ev, &timer) == -1) {\n        perror(\"timer_create\");\n        return EXIT_FAILURE;\n    }\n    struct itimerspec its;\n    its.it_value.tv_sec = period_ms / 1000;\n    its.it_value.tv_nsec = (period_ms % 1000) * 1000000L;\n    its.it_interval = its.it_value;\n    if (timer_settime(timer, 0, &its, NULL) == -1) {\n        perror(\"timer_settime\");\n        return EXIT_FAILURE;\n    }\n\n    if (run_uid >= 0 && drop_privileges((uid_t)run_uid) != 0)\n        return EXIT_FAILURE;\n\n    dispatch_context_t *ctp = dispatch_context_alloc(dpp);\n    if (ctp == NULL) {\n        perror(\"dispatch_context_alloc\");\n        return EXIT_FAILURE;\n    }\n    for (;;) {\n        dispatch_context_t *next = dispatch_block(ctp);\n        if (next == NULL) {\n            if (errno == EINTR)\n                continue;\n            perror(\"dispatch_block\");\n            return EXIT_FAILURE;\n        }\n        ctp = next;\n        dispatch_handler(ctp);\n    }\n}\n",
-   "qcc_compiled": "skipped"
+   "content": "/*\n * qnx_candaemon_resmgr.c - single-threaded QNX 8.0 resource manager skeleton at /dev/candaemon.\n * Generated by QNX Integration Advisor for can-telemetry-daemon. Apache-2.0.\n *\n *   read()   -> text status line\n *   write()  -> sets an integer value (e.g. a setpoint)\n *   devctl() -> DCMD_CANDAEMON_GET_STATUS / DCMD_CANDAEMON_SET_VALUE (candaemon_dcmd.h)\n *   periodic timer pulse (pulse_attach) -> tick_handler(), where the repo's loop body goes\n *\n * Build:  qcc -Vgcc_ntox86_64 -Wall -Wextra -Werror -Iinclude -Isrc -o candaemon_resmgr src/qnx_candaemon_resmgr.c\n * Run:    candaemon_resmgr -p 100 -u 1000 &      (starts as root, drops to uid 1000)\n */\n#include <errno.h>\n#include <fcntl.h>\n#include <stdint.h>\n#include <stdio.h>\n#include <stdlib.h>\n#include <string.h>\n#include <time.h>\n#include <unistd.h>\n\n#include <devctl.h>\n#include <sys/iofunc.h>\n#include <sys/dispatch.h>\n#include <sys/neutrino.h>\n#include <sys/procmgr.h>\n#include <sys/stat.h>\n\n#include \"candaemon_dcmd.h\"\n\ntypedef struct {\n    /* TODO: embed the repository's main state (can_stats_t from src/stats.h) here. */\n    candaemon_status_t status;\n} service_state_t;\n\nstatic service_state_t        state;\nstatic resmgr_connect_funcs_t connect_funcs;\nstatic resmgr_io_funcs_t      io_funcs;\nstatic iofunc_attr_t          dev_attr;\nstatic char                   read_buf[128];\n\n/* ------------------------------------------------------------------ read() */\nstatic int io_read(resmgr_context_t *ctp, io_read_t *msg, RESMGR_OCB_T *ocb)\n{\n    int status = iofunc_read_verify(ctp, msg, ocb, NULL);\n    if (status != EOK)\n        return status;\n    if ((msg->i.xtype & _IO_XTYPE_MASK) != _IO_XTYPE_NONE)\n        return ENOSYS;\n\n    if (ocb->offset == 0) {\n        int n = snprintf(read_buf, sizeof read_buf, \"value=%d ticks=%llu\\n\",\n                         (int)state.status.value, (unsigned long long)state.status.ticks);\n        if (n < 0)\n            return EIO;\n    }\n    size_t len = strlen(read_buf);\n    size_t nbytes = 0;\n    if (ocb->offset >= 0 && (size_t)ocb->offset < len) {\n        nbytes = len - (size_t)ocb->offset;\n        if (nbytes > (size_t)_IO_READ_GET_NBYTES(msg))\n            nbytes = (size_t)_IO_READ_GET_NBYTES(msg);\n    }\n    _IO_SET_READ_NBYTES(ctp, nbytes);\n    if (nbytes == 0)\n        return _RESMGR_NPARTS(0);\n    SETIOV(ctp->iov, read_buf + ocb->offset, nbytes);\n    ocb->offset += (off_t)nbytes;\n    ocb->attr->flags |= IOFUNC_ATTR_ATIME;\n    return _RESMGR_NPARTS(1);\n}\n\n/* ------------------------------------------------------------------ write() */\nstatic int io_write(resmgr_context_t *ctp, io_write_t *msg, RESMGR_OCB_T *ocb)\n{\n    int status = iofunc_write_verify(ctp, msg, ocb, NULL);\n    if (status != EOK)\n        return status;\n    if ((msg->i.xtype & _IO_XTYPE_MASK) != _IO_XTYPE_NONE)\n        return ENOSYS;\n\n    size_t nbytes = (size_t)_IO_WRITE_GET_NBYTES(msg);\n    char   buf[32];\n    size_t want = nbytes < sizeof buf - 1 ? nbytes : sizeof buf - 1;\n    ssize_t got = resmgr_msgread(ctp, buf, want, sizeof msg->i);\n    if (got == -1)\n        return errno;\n    buf[got] = '\\0';\n    state.status.value = (int32_t)strtol(buf, NULL, 10);   /* TODO: parse the repo's command format */\n\n    _IO_SET_WRITE_NBYTES(ctp, nbytes);\n    if (nbytes > 0)\n        ocb->attr->flags |= IOFUNC_ATTR_MTIME | IOFUNC_ATTR_CTIME;\n    return EOK;\n}\n\n/* ------------------------------------------------------------------ devctl() */\nstatic int io_devctl(resmgr_context_t *ctp, io_devctl_t *msg, RESMGR_OCB_T *ocb)\n{\n    int status = iofunc_devctl_default(ctp, msg, ocb);\n    if (status != _RESMGR_DEFAULT)\n        return status;\n\n    void  *data = _DEVCTL_DATA(msg->i);\n    size_t nbytes = 0;\n\n    switch (msg->i.dcmd) {\n    case DCMD_CANDAEMON_GET_STATUS:\n        if (msg->i.nbytes < sizeof(state.status))\n            return EINVAL;\n        memcpy(data, &state.status, sizeof(state.status));\n        nbytes = sizeof(state.status);\n        break;\n    case DCMD_CANDAEMON_SET_VALUE: {\n        int32_t v;\n        if (msg->i.nbytes < sizeof v)\n            return EINVAL;\n        if (resmgr_msgread(ctp, &v, sizeof v, sizeof msg->i) != (ssize_t)sizeof v)\n            return EFAULT;\n        state.status.value = v;\n        break;\n    }\n    default:\n        return ENOSYS;\n    }\n\n    memset(&msg->o, 0, sizeof msg->o);\n    msg->o.ret_val = EOK;\n    msg->o.nbytes = (uint32_t)nbytes;\n    return _RESMGR_PTR(ctp, &msg->o, sizeof msg->o + nbytes);\n}\n\n/* ------------------------------------------------------------------ timer pulse */\nstatic int tick_handler(message_context_t *ctp, int code, unsigned flags, void *handle)\n{\n    (void)ctp; (void)code; (void)flags; (void)handle;\n    state.status.ticks++;\n    /* TODO: move the body of can-telemetry-daemon's periodic loop here\n       (read inputs, compute, write outputs). It runs in the resmgr's single thread,\n       so it is serialized with client requests and needs no extra locking. */\n    return 0;\n}\n\nstatic int drop_privileges(uid_t uid)\n{\n    /* Path registration is done. Deny and lock every ability for the non-root domain,\n       then become that user. */\n    int rc = procmgr_ability(0, PROCMGR_ADN_NONROOT | PROCMGR_AOP_DENY | PROCMGR_AOP_LOCK | PROCMGR_AID_EOL);\n    if (rc != EOK) {\n        fprintf(stderr, \"procmgr_ability: %s\\n\", strerror(rc));\n        return -1;\n    }\n    if (setgid((gid_t)uid) == -1 || setuid(uid) == -1) {\n        perror(\"setuid\");\n        return -1;\n    }\n    return 0;\n}\n\nint main(int argc, char **argv)\n{\n    long period_ms = 100;\n    long run_uid = -1;\n    int  opt;\n    while ((opt = getopt(argc, argv, \"p:u:\")) != -1) {\n        switch (opt) {\n        case 'p': period_ms = strtol(optarg, NULL, 10); break;\n        case 'u': run_uid = strtol(optarg, NULL, 10); break;\n        default:\n            fprintf(stderr, \"usage: %s [-p period_ms] [-u uid]\\n\", argv[0]);\n            return EXIT_FAILURE;\n        }\n    }\n    if (period_ms <= 0)\n        period_ms = 100;\n\n    dispatch_t *dpp = dispatch_create();\n    if (dpp == NULL) {\n        perror(\"dispatch_create\");\n        return EXIT_FAILURE;\n    }\n\n    resmgr_attr_t rattr;\n    memset(&rattr, 0, sizeof rattr);\n    rattr.nparts_max = 1;\n    rattr.msg_max_size = 2048;\n\n    iofunc_func_init(_RESMGR_CONNECT_NFUNCS, &connect_funcs, _RESMGR_IO_NFUNCS, &io_funcs);\n    io_funcs.read = io_read;\n    io_funcs.write = io_write;\n    io_funcs.devctl = io_devctl;\n    iofunc_attr_init(&dev_attr, S_IFCHR | 0666, NULL, NULL);\n\n    if (resmgr_attach(dpp, &rattr, \"/dev/candaemon\", _FTYPE_ANY, 0, &connect_funcs, &io_funcs, &dev_attr) == -1) {\n        perror(\"resmgr_attach /dev/candaemon\");\n        return EXIT_FAILURE;\n    }\n\n    int code = pulse_attach(dpp, MSG_FLAG_ALLOC_PULSE, 0, tick_handler, NULL);\n    if (code == -1) {\n        perror(\"pulse_attach\");\n        return EXIT_FAILURE;\n    }\n    int coid = message_connect(dpp, MSG_FLAG_SIDE_CHANNEL);\n    if (coid == -1) {\n        perror(\"message_connect\");\n        return EXIT_FAILURE;\n    }\n    struct sigevent ev;\n    SIGEV_PULSE_INIT(&ev, coid, 21, code, 0);\n    timer_t timer;\n    if (timer_create(CLOCK_MONOTONIC, &ev, &timer) == -1) {\n        perror(\"timer_create\");\n        return EXIT_FAILURE;\n    }\n    struct itimerspec its;\n    its.it_value.tv_sec = period_ms / 1000;\n    its.it_value.tv_nsec = (period_ms % 1000) * 1000000L;\n    its.it_interval = its.it_value;\n    if (timer_settime(timer, 0, &its, NULL) == -1) {\n        perror(\"timer_settime\");\n        return EXIT_FAILURE;\n    }\n\n    if (run_uid >= 0 && drop_privileges((uid_t)run_uid) != 0)\n        return EXIT_FAILURE;\n\n    dispatch_context_t *ctp = dispatch_context_alloc(dpp);\n    if (ctp == NULL) {\n        perror(\"dispatch_context_alloc\");\n        return EXIT_FAILURE;\n    }\n    for (;;) {\n        dispatch_context_t *next = dispatch_block(ctp);\n        if (next == NULL) {\n            if (errno == EINTR)\n                continue;\n            perror(\"dispatch_block\");\n            return EXIT_FAILURE;\n        }\n        ctp = next;\n        dispatch_handler(ctp);\n    }\n}\n",
+   "qcc_compiled": "both"
   },
   {
    "path": "src/candaemon_dcmd.h",
    "description": "devctl() command definitions (__DIOF/__DIOT)",
    "content": "/*\n * candaemon_dcmd.h - devctl() protocol for /dev/candaemon.\n * Generated by QNX Integration Advisor for can-telemetry-daemon. Apache-2.0.\n */\n#ifndef CANDAEMON_DCMD_H\n#define CANDAEMON_DCMD_H\n\n#include <devctl.h>\n#include <stdint.h>\n\ntypedef struct {\n    int32_t  value;        /* last value written by a client (e.g. a setpoint) */\n    uint32_t flags;\n    uint64_t ticks;        /* periodic timer pulses handled so far */\n} candaemon_status_t;\n\n/* __DIOF: data from the driver; __DIOT: data to the driver; __DIOTF: both. */\n#define DCMD_CANDAEMON_GET_STATUS   __DIOF(_DCMD_MISC, 0x01, candaemon_status_t)\n#define DCMD_CANDAEMON_SET_VALUE    __DIOT(_DCMD_MISC, 0x02, int32_t)\n\n#endif\n",
-   "qcc_compiled": "skipped"
+   "qcc_compiled": "both"
   },
   {
    "path": "src/candaemonctl.c",
    "description": "Client: open + devctl, prints JSON",
    "content": "/*\n * candaemonctl.c - tiny client for /dev/candaemon (open + devctl).\n * Generated by QNX Integration Advisor for can-telemetry-daemon. Apache-2.0.\n *   candaemonctl            -> prints status as JSON\n *   candaemonctl set 1500   -> DCMD_CANDAEMON_SET_VALUE\n */\n#include <errno.h>\n#include <fcntl.h>\n#include <stdio.h>\n#include <stdlib.h>\n#include <string.h>\n#include <unistd.h>\n\n#include <devctl.h>\n\n#include \"candaemon_dcmd.h\"\n\nint main(int argc, char **argv)\n{\n    int fd = open(\"/dev/candaemon\", O_RDWR);\n    if (fd == -1) {\n        perror(\"open /dev/candaemon\");\n        return EXIT_FAILURE;\n    }\n    int rc;\n    if (argc == 3 && strcmp(argv[1], \"set\") == 0) {\n        int32_t v = (int32_t)strtol(argv[2], NULL, 10);\n        rc = devctl(fd, DCMD_CANDAEMON_SET_VALUE, &v, sizeof v, NULL);\n        if (rc != EOK) {\n            fprintf(stderr, \"devctl SET_VALUE: %s\\n\", strerror(rc));\n            close(fd);\n            return EXIT_FAILURE;\n        }\n    }\n    candaemon_status_t st;\n    memset(&st, 0, sizeof st);\n    rc = devctl(fd, DCMD_CANDAEMON_GET_STATUS, &st, sizeof st, NULL);\n    close(fd);\n    if (rc != EOK) {\n        fprintf(stderr, \"devctl GET_STATUS: %s\\n\", strerror(rc));\n        return EXIT_FAILURE;\n    }\n    printf(\"{\\\"value\\\": %d, \\\"flags\\\": %u, \\\"ticks\\\": %llu}\\n\",\n           (int)st.value, (unsigned)st.flags, (unsigned long long)st.ticks);\n    return EXIT_SUCCESS;\n}\n",
-   "qcc_compiled": "skipped"
+   "qcc_compiled": "both"
   },
   {
    "path": "tests/compat_selftest.c",
    "description": "Runs every shim in qnx_compat.h on the target",
    "content": "/*\n * compat_selftest.c - exercises qnx_compat.h so the shims are compiled and run on the target.\n * Generated by QNX Integration Advisor for can-telemetry-daemon. Apache-2.0.\n * Exit status 0 means every shim worked.\n */\n#include <stdio.h>\n#include <stdlib.h>\n\n#include \"qnx_compat.h\"\n\nint main(void)\n{\n    int failures = 0;\n    qnx_periodic_timer_t t;\n    if (qnx_periodic_timer_create(&t, 1000000ULL, 10) != 0) {\n        perror(\"qnx_periodic_timer_create\");\n        failures++;\n    } else {\n        for (int i = 0; i < 100; i++) {\n            if (qnx_periodic_timer_wait(&t) != 0) {\n                perror(\"qnx_periodic_timer_wait\");\n                failures++;\n                break;\n            }\n        }\n        qnx_periodic_timer_destroy(&t);\n        printf(\"periodic timer: 100 periods ok\\n\");\n    }\n#ifdef __QNX__\n    int chid = ChannelCreate(QNX_COMPAT_CHF);\n    qnx_notifier_t n;\n    if (chid == -1 || qnx_notifier_init(&n, chid, _PULSE_CODE_MINAVAIL + 5) != 0) {\n        perror(\"qnx_notifier_init\");\n        failures++;\n    } else {\n        struct _pulse p;\n        if (qnx_notifier_signal(&n, 42) == -1 || MsgReceivePulse(chid, &p, sizeof p, NULL) == -1\n            || p.code != _PULSE_CODE_MINAVAIL + 5 || p.value.sival_int != 42) {\n            fprintf(stderr, \"notifier pulse mismatch\\n\");\n            failures++;\n        } else {\n            printf(\"notifier: pulse ok\\n\");\n        }\n        qnx_notifier_destroy(&n);\n        ChannelDestroy(chid);\n    }\n#endif\n    return failures == 0 ? EXIT_SUCCESS : EXIT_FAILURE;\n}\n",
-   "qcc_compiled": "skipped"
+   "qcc_compiled": "both"
   },
   {
    "path": "Makefile.qnx",
@@ -1189,7 +1195,7 @@
   {
    "path": "PORTING_GUIDE.md",
    "description": "Per-repo codelab version of Pillar 3",
-   "content": "# Porting can-telemetry-daemon to QNX 8.0\n\nGenerated by QNX Integration Advisor (deterministic mode) from commit `local`.\nReadiness score: **0/100**. No QNX SDP was found, so availability is based on rule knowledge and is unverified against a sysroot.\n\nThis guide is a per-repository codelab. Each step stands alone and ends with a command\nthat verifies it. Kit files referenced below are in this porting kit.\n\n## What you need\n\n- QNX SDP 8.0 (QNX Everywhere), with `source qnxsdp-env.sh` done in your shell\n- A QNX 8.0 target: the QEMU VM from `target/run-qemu.sh` (uses `mkqnximage`) or a Raspberry Pi 5\n- SSH access to the target as `qnxuser`\n\n## Findings at a glance\n\n| Severity | Rule | What | Where |\n| :--- | :--- | :--- | :--- |\n| blocker | LNX-EPOLL | epoll event loop | `src/candaemon.c:15`, `src/candaemon.c:113`, `src/candaemon.c:117` |\n| blocker | LNX-SOCKETCAN | SocketCAN | `src/candaemon.c:24`, `src/candaemon.c:25`, `src/candaemon.c:36` |\n| high | LNX-EVENTFD | eventfd notifier | `src/candaemon.c:16`, `src/candaemon.c:102` |\n| high | LNX-PRCTL-CAPS | Root-only daemon / Linux capabilities | `candaemon.service:9` |\n| high | LNX-SIGNALFD | signalfd | `src/candaemon.c:18`, `src/candaemon.c:111` |\n| medium | BLD-COMPILER | Host-only compiler settings | `Makefile:1` |\n| medium | LNX-FORK | fork() in a multithreaded program | `src/candaemon.c:84` |\n| medium | LNX-IOCTL | ioctl on device descriptors | `src/candaemon.c:42` |\n| medium | LNX-LIBS | Linux-only link libraries | `Makefile:3` |\n| medium | LNX-PROCFS | Linux /proc paths | `src/candaemon.c:76` |\n| medium | LNX-SOCKLIB | BSD sockets without libsocket | `src/candaemon.c:36`, `src/candaemon.c:45`, `src/candaemon.c:51` |\n| medium | LNX-SYSTEMD | systemd unit / watchdog script | `candaemon.service:1` |\n| low | LNX-PERIODIC-SLEEP | sleep-based periodic loop | `src/candaemon.c:67` |\n| info | LNX-LOG | syslog logging | `src/candaemon.c:37`, `src/candaemon.c:42`, `src/candaemon.c:45` |\n\n\n## Step 1: Cross-compile with the QNX 8.0 toolchain\n\n*Category: toolchain build · effort S · files: Makefile, src/candaemon.c*\n\nCross-compile with the kit's toolchain file (qcc/q++ with -V gcc_nto<arch>). Changes needed: Host-only compiler settings: Source qnxsdp-env.sh, then configure with the kit's toolchain file. Linux-only link libraries: Use Threads::Threads and drop -lrt/-ldl where the sysroot has no such library. BSD sockets without libsocket: Add socket to the QNX link libraries.\n\n**Before**\n\n```c\nCC      ?= gcc\nLDLIBS  = -lpthread -lrt\n```\n\n**After**\n\n```cmake\n# Add to can-telemetry-daemon's CMakeLists.txt after the target \"candaemon\" is defined:\n#   include(cmake/qnx8.cmake)\n\nif(CMAKE_SYSTEM_NAME STREQUAL \"QNX\")\n  target_compile_definitions(candaemon PRIVATE _QNX_SOURCE)\n  target_include_directories(candaemon PRIVATE ${CMAKE_CURRENT_LIST_DIR}/../include)\n  # From the sysroot audit: socket (BSD sockets without libsocket)\n  target_link_libraries(candaemon socket)\n  # On QNX these functions are normally in libc (unverified: no SDP was indexed):\n  #   pthread, rt  -> remove them from target_link_libraries for QNX builds.\nendif()\n```\n\n**Verify**\n\n```sh\ncmake -B build-qnx -DCMAKE_TOOLCHAIN_FILE=cmake/qnx8-toolchain.cmake -DQNX_ARCH=x86_64 && cmake --build build-qnx\n```\n\n## Step 2: Replace the epoll loop\n\n*Category: api migration · effort M · files: src/candaemon.c*\n\nStart with poll() so the code builds and runs on QNX. Once it works, consider moving to a channel + pulse loop (see the resource-manager step) where each event source has its own pulse code and priority.\n\n**Before**\n\n```c\n/* src/candaemon.c */\nint ep = epoll_create1(EPOLL_CLOEXEC);\nint fds[] = { can, srv, flush_efd, sfd };\nfor (unsigned i = 0; i < sizeof fds / sizeof fds[0]; i++) {\n    struct epoll_event ev = { .events = EPOLLIN, .data.fd = fds[i] };\n    epoll_ctl(ep, EPOLL_CTL_ADD, fds[i], &ev);\n}\n```\n\n**After**\n\n```c\n#include <poll.h>\n\nstruct pollfd pfd[2] = {\n    { .fd = tfd, .events = POLLIN },\n    { .fd = cfd, .events = POLLIN },\n};\nint n = poll(pfd, 2, -1);\nif (n > 0 && (pfd[0].revents & POLLIN)) {\n    /* periodic work */\n}\n```\n\n**Verify**\n\n```sh\nqcc -Vgcc_ntox86_64 -fsyntax-only src/main.c\n```\n\n## Step 3: Introduce a CAN HAL with a QNX backend stub\n\n*Category: api migration · effort L · files: src/candaemon.c*\n\nDefine can_hal_open/can_hal_read/can_hal_close. Keep the SocketCAN backend for Linux. The QNX backend opens the CAN driver's device path and uses the driver's devctl commands; fill in the DCMD_* values from the driver you deploy.\n\n**Before**\n\n```c\n/* src/candaemon.c */\n{\n    int s = socket(PF_CAN, SOCK_RAW, CAN_RAW);\n    if (s < 0) { syslog(LOG_ERR, \"socket(PF_CAN): %m\"); return -1; }\n/* ... */\nstruct sockaddr_can addr = { .can_family = AF_CAN, .can_ifindex = ifr.ifr_ifindex };\nif (bind(s, (struct sockaddr *)&addr, sizeof addr) < 0) { syslog(LOG_ERR, \"bind: %m\"); return -1; }\nreturn s;\n```\n\n**After**\n\n```c\n/* can_hal.h */\ntypedef struct { uint32_t id; uint8_t dlc; uint8_t data[8]; } can_hal_frame_t;\nint  can_hal_open(const char *channel);           /* \"can0\" or \"/dev/can1/rx0\" */\nint  can_hal_read(int h, can_hal_frame_t *f);     /* blocking read */\nvoid can_hal_close(int h);\n```\n\n**Verify**\n\n```sh\nqcc -Vgcc_ntox86_64 -fsyntax-only src/can_hal_qnx.c\n```\n\n## Step 4: Turn eventfd wake-ups into pulses\n\n*Category: api migration · effort S · files: src/candaemon.c*\n\nCreate the notifier with the qnx_compat.h shim from the porting kit. On QNX it sends a pulse to the loop's channel; elsewhere it falls back to a pipe.\n\n**Before**\n\n```c\n/* src/candaemon.c */\nflush_efd = eventfd(0, EFD_NONBLOCK);\npthread_t th;\npthread_create(&th, NULL, flusher, NULL);\n```\n\n**After**\n\n```c\n#include \"qnx_compat.h\"\n\nqnx_notifier_t n;\nqnx_notifier_init(&n, chid, PULSE_CODE_FLUSH);\nqnx_notifier_signal(&n, 1);        /* MsgSendPulse under the hood */\n```\n\n**Verify**\n\n```sh\nqcc -Vgcc_ntox86_64 -fsyntax-only -Iinclude src/main.c\n```\n\n## Step 5: Handle signals in a sigwaitinfo() thread\n\n*Category: api migration · effort S · files: src/candaemon.c*\n\nBlock SIGTERM/SIGINT before creating threads, then wait for them in one thread.\n\n**Before**\n\n```c\n/* src/candaemon.c */\nsigprocmask(SIG_BLOCK, &mask, NULL);\nint sfd = signalfd(-1, &mask, SFD_NONBLOCK);\n\nint ep = epoll_create1(EPOLL_CLOEXEC);\n```\n\n**After**\n\n```c\nstatic void *signal_thread(void *arg)\n{\n    sigset_t *mask = arg;\n    siginfo_t si;\n    if (sigwaitinfo(mask, &si) > 0)\n        MsgSendPulse(main_coid, -1, PULSE_CODE_SHUTDOWN, si.si_signo);\n    return NULL;\n}\n/* in main(): pthread_sigmask(SIG_BLOCK, &mask, NULL); pthread_create(...) */\n```\n\n**Verify**\n\n```sh\nqcc -Vgcc_ntox86_64 -fsyntax-only src/main.c\n```\n\n## Step 6: Replace fork()/exec with posix_spawn()\n\n*Category: api migration · effort S · files: src/candaemon.c*\n\nUse posix_spawn(); for daemonizing, let the startup script background the process instead.\n\n**Before**\n\n```c\n/* src/candaemon.c */\n{\n    pid_t pid = fork();\n    if (pid < 0) exit(1);\n    if (pid > 0) exit(0);\n```\n\n**After**\n\n```c\n#include <spawn.h>\n\nextern char **environ;\npid_t pid;\nchar *const argv[] = { (char *)path, arg, NULL };\nint rc = posix_spawn(&pid, path, NULL, NULL, argv, environ);\n```\n\n**Verify**\n\n```sh\nqcc -Vgcc_ntox86_64 -fsyntax-only src/main.c\n```\n\n## Step 7: Wrap device control in a HAL\n\n*Category: api migration · effort M · files: src/candaemon.c*\n\nMove ioctl() calls behind functions such as hal_set_line(); implement the QNX side with devctl().\n\n**Before**\n\n```c\n/* src/candaemon.c */\nifr.ifr_name[IFNAMSIZ - 1] = '\\0';\nif (ioctl(s, SIOCGIFINDEX, &ifr) < 0) { syslog(LOG_ERR, \"SIOCGIFINDEX: %m\"); return -1; }\n\nstruct sockaddr_can addr = { .can_family = AF_CAN, .can_ifindex = ifr.ifr_ifindex };\n```\n\n**After**\n\n```c\n/* hal.h */\nint hal_serial_set_dtr(int fd, int on);\n\n/* hal_qnx.c */\n#include <devctl.h>\n#include <sys/dcmd_chr.h>\nint hal_serial_set_dtr(int fd, int on)\n{\n    int bits = on ? (_SERCTL_DTR | _SERCTL_DTR_CHG) : _SERCTL_DTR_CHG;\n    return devctl(fd, DCMD_CHR_SERCTL, &bits, sizeof bits, NULL);\n}\n```\n\n**Verify**\n\n```sh\nqcc -Vgcc_ntox86_64 -fsyntax-only src/hal_qnx.c\n```\n\n## Step 8: Replace Linux /proc parsing\n\n*Category: api migration · effort S · files: src/candaemon.c*\n\nUse DCMD_PROC_INFO on /proc/self/as instead of parsing text files.\n\n**Before**\n\n```c\n/* src/candaemon.c */\n{\n    FILE *f = fopen(\"/proc/self/statm\", \"r\");\n    long pages = 0, resident = 0;\n    if (f) { fscanf(f, \"%ld %ld\", &pages, &resident); fclose(f); }\n```\n\n**After**\n\n```c\n#include <sys/procfs.h>\n#include <devctl.h>\n\nint fd = open(\"/proc/self/as\", O_RDONLY);\nprocfs_info info;\nif (fd >= 0 && devctl(fd, DCMD_PROC_INFO, &info, sizeof info, NULL) == EOK) {\n    /* info.pid, info.num_threads, ... */\n}\n```\n\n**Verify**\n\n```sh\nqcc -Vgcc_ntox86_64 -fsyntax-only src/main.c\n```\n\n## Step 9: Expose the service as a /dev/candaemon resource manager\n\n*Category: resmgr conversion · effort L · files: src/qnx_candaemon_resmgr.c, src/candaemon_dcmd.h*\n\nStart from the kit's resource-manager skeleton. Clients open /dev/candaemon and use read(), write() and devctl() instead of a private socket or shared memory. The periodic work moves into the timer pulse handler, which runs serialized with client requests in one thread.\n\n**After**\n\n```c\nstatic int io_devctl(resmgr_context_t *ctp, io_devctl_t *msg, RESMGR_OCB_T *ocb)\n{\n    int status = iofunc_devctl_default(ctp, msg, ocb);\n    if (status != _RESMGR_DEFAULT)\n        return status;\n\n    void  *data = _DEVCTL_DATA(msg->i);\n    size_t nbytes = 0;\n\n    switch (msg->i.dcmd) {\n    case DCMD_CANDAEMON_GET_STATUS:\n        if (msg->i.nbytes < sizeof(state.status))\n            return EINVAL;\n        memcpy(data, &state.status, sizeof(state.status));\n        nbytes = sizeof(state.status);\n        break;\n    case DCMD_CANDAEMON_SET_VALUE: {\n        int32_t v;\n        if (msg->i.nbytes < sizeof v)\n            return EINVAL;\n        if (resmgr_msgread(ctp, &v, sizeof v, sizeof msg->i) != (ssize_t)sizeof v)\n            return EFAULT;\n        state.status.value = v;\n        break;\n    }\n    default:\n        return ENOSYS;\n    }\n\n    memset(&msg->o, 0, sizeof msg->o);\n    msg->o.ret_val = EOK;\n    msg->o.nbytes = (uint32_t)nbytes;\n    return _RESMGR_PTR(ctp, &msg->o, sizeof msg->o + nbytes);\n}\n```\n\n**Verify**\n\n```sh\nls -l /dev/candaemon && candaemonctl  # on the target\n```\n\n## Step 10: Use absolute-deadline sleeps for periodic work\n\n*Category: scheduling timing · effort S · files: src/candaemon.c*\n\nReplace relative sleeps in periodic loops with clock_nanosleep(TIMER_ABSTIME).\n\n**Before**\n\n```c\n/* src/candaemon.c */\nfor (;;) {\n    sleep(1);\n    uint64_t one = 1;\n    write(flush_efd, &one, sizeof one);\n```\n\n**After**\n\n```c\nstruct timespec next;\nclock_gettime(CLOCK_MONOTONIC, &next);\nfor (;;) {\n    do_work();\n    next.tv_nsec += PERIOD_NS;\n    while (next.tv_nsec >= 1000000000L) { next.tv_nsec -= 1000000000L; next.tv_sec++; }\n    clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &next, NULL);\n}\n```\n\n**Verify**\n\n```sh\nqcc -Vgcc_ntox86_64 -fsyntax-only src/main.c\n```\n\n## Step 11: Drop privileges with procmgr_ability()\n\n*Category: reliability security · effort M · files: candaemon.service*\n\nAfter privileged setup, allow the specific abilities the service still needs for the non-root domain, deny and lock everything else, then setuid() to a service user.\n\n**Before**\n\n```c\nUser=root\n```\n\n**After**\n\n```c\n#include <sys/procmgr.h>\n\n/* after resmgr_attach()/open() of privileged resources: */\nif (procmgr_ability(0,\n        PROCMGR_ADN_NONROOT | PROCMGR_AOP_ALLOW | PROCMGR_AOP_LOCK | PROCMGR_AID_PRIORITY,\n        PROCMGR_ADN_NONROOT | PROCMGR_AOP_DENY  | PROCMGR_AOP_LOCK | PROCMGR_AID_EOL) != EOK) {\n    return 1;\n}\nif (setgid(SERVICE_GID) == -1 || setuid(SERVICE_UID) == -1)\n    return 1;\n```\n\n**Verify**\n\n```sh\npidin -p <service> arg  # on target: confirm non-root uid\n```\n\n## Step 12: Replace systemd supervision with startup script + HAM\n\n*Category: reliability security · effort M · files: candaemon.service*\n\nLaunch from the image startup script and add a HAM heartbeat.\n\n**Before**\n\n```c\n[Unit]\nDescription=CAN telemetry aggregation daemon\nAfter=sys-subsystem-net-devices-can0.device\n\n[Service]\nType=forking\nExecStart=/usr/local/sbin/candaemon can0\nRestart=on-failure\nUser=root\n\n[Install]\nWantedBy=multi-user.target\n```\n\n**After**\n\n```c\n#include <ha/ham.h>\n\nham_entity_t *e = ham_attach_self(\"motor_pid\", 500000000ULL /* 0.5 s */, 4, 8, 0);\n/* in the loop */\nham_heartbeat();\n```\n\n**Verify**\n\n```sh\nls /proc/ham  # on target, HAM running\n```\n\n## Step 13: Optionally switch to slog2\n\n*Category: reliability security · effort S · files: src/candaemon.c*\n\nRegister a slog2 buffer set at start-up and route log calls through slog2f().\n\n**Before**\n\n```c\n/* src/candaemon.c */\nint s = socket(PF_CAN, SOCK_RAW, CAN_RAW);\nif (s < 0) { syslog(LOG_ERR, \"socket(PF_CAN): %m\"); return -1; }\n\nstruct ifreq ifr;\nstrncpy(ifr.ifr_name, ifname, IFNAMSIZ - 1);\nifr.ifr_name[IFNAMSIZ - 1] = '\\0';\nif (ioctl(s, SIOCGIFINDEX, &ifr) < 0) { syslog(LOG_ERR, \"SIOCGIFINDEX: %m\"); return -1; }\n\nstruct sockaddr_can addr = { .can_family = AF_CAN, .can_ifindex = ifr.ifr_ifindex };\n```\n\n**After**\n\n```c\n#include <sys/slog2.h>\n\nslog2_buffer_set_config_t cfg = {0};\nslog2_buffer_t buf;\ncfg.buffer_set_name = \"motor_pid\";\ncfg.num_buffers = 1;\ncfg.verbosity_level = SLOG2_INFO;\ncfg.buffer_config[0].buffer_name = \"main\";\ncfg.buffer_config[0].num_pages = 4;\nif (slog2_register(&cfg, &buf, 0) == 0)\n    slog2_set_default_buffer(buf);\nslog2f(NULL, 0, SLOG2_INFO, \"started, period=%d us\", 1000);\n```\n\n**Verify**\n\n```sh\nslog2info -b motor_pid  # on target\n```\n\n## Step 14: Build, deploy and verify on a QNX 8.0 target\n\n*Category: deploy verify · effort M · files: Makefile.qnx, target/run-qemu.sh*\n\nBuild the kit binaries with qcc, boot the QEMU target with mkqnximage, copy the binaries over SSH and run them under the advisor agent, which checks that the resource manager comes up and measures timer and IPC behaviour.\n\n**Verify**\n\n```sh\nadvisorctl verify /data/home/qnxuser/candaemon_resmgr --expect /dev/candaemon --timeout 5000\n```\n\n## Notes\n\n- Numbers measured on QEMU reflect virtualization overhead and are indicative only.\n- APIs in this guide were not checked against an SDP sysroot (no SDP was found).\n",
+   "content": "# Porting can-telemetry-daemon to QNX 8.0\n\nGenerated by QNX Integration Advisor (deterministic mode) from commit `local`.\nReadiness score: **0/100**. APIs were checked against the local QNX SDP 8.0.0 sysroot.\n\nThis guide is a per-repository codelab. Each step stands alone and ends with a command\nthat verifies it. Kit files referenced below are in this porting kit.\n\n## What you need\n\n- QNX SDP 8.0 (QNX Everywhere), with `source qnxsdp-env.sh` done in your shell\n- A QNX 8.0 target: the QEMU VM from `target/run-qemu.sh` (uses `mkqnximage`) or a Raspberry Pi 5\n- SSH access to the target as `qnxuser`\n\n## Findings at a glance\n\n| Severity | Rule | What | Where |\n| :--- | :--- | :--- | :--- |\n| blocker | LNX-EPOLL | epoll event loop | `src/candaemon.c:15`, `src/candaemon.c:113`, `src/candaemon.c:117` |\n| blocker | LNX-SOCKETCAN | SocketCAN | `src/candaemon.c:24`, `src/candaemon.c:25`, `src/candaemon.c:36` |\n| high | LNX-EVENTFD | eventfd notifier | `src/candaemon.c:16`, `src/candaemon.c:102` |\n| high | LNX-PRCTL-CAPS | Root-only daemon / Linux capabilities | `candaemon.service:9` |\n| high | LNX-SIGNALFD | signalfd | `src/candaemon.c:18`, `src/candaemon.c:111` |\n| medium | BLD-COMPILER | Host-only compiler settings | `Makefile:1` |\n| medium | LNX-FORK | fork() in a multithreaded program | `src/candaemon.c:84` |\n| medium | LNX-IOCTL | ioctl on device descriptors | `src/candaemon.c:42` |\n| medium | LNX-LIBS | Linux-only link libraries | `Makefile:3` |\n| medium | LNX-PROCFS | Linux /proc paths | `src/candaemon.c:76` |\n| medium | LNX-SOCKLIB | BSD sockets without libsocket | `src/candaemon.c:36`, `src/candaemon.c:45`, `src/candaemon.c:51` |\n| medium | LNX-SYSTEMD | systemd unit / watchdog script | `candaemon.service:1` |\n| low | LNX-PERIODIC-SLEEP | sleep-based periodic loop | `src/candaemon.c:67` |\n| info | LNX-LOG | syslog logging | `src/candaemon.c:37`, `src/candaemon.c:42`, `src/candaemon.c:45` |\n\n\n## Step 1: Cross-compile with the QNX 8.0 toolchain\n\n*Category: toolchain build · effort S · files: Makefile, src/candaemon.c*\n\nCross-compile with the kit's toolchain file (qcc/q++ with -V gcc_nto<arch>). Changes needed: Host-only compiler settings: Source qnxsdp-env.sh, then configure with the kit's toolchain file. Linux-only link libraries: Use Threads::Threads and drop -lrt/-ldl where the sysroot has no such library. BSD sockets without libsocket: Add socket to the QNX link libraries.\n\n**Before**\n\n```c\nCC      ?= gcc\nLDLIBS  = -lpthread -lrt\n```\n\n**After**\n\n```cmake\n# Add to can-telemetry-daemon's CMakeLists.txt after the target \"candaemon\" is defined:\n#   include(cmake/qnx8.cmake)\n\nif(CMAKE_SYSTEM_NAME STREQUAL \"QNX\")\n  target_compile_definitions(candaemon PRIVATE _QNX_SOURCE)\n  target_include_directories(candaemon PRIVATE ${CMAKE_CURRENT_LIST_DIR}/../include)\n  # From the sysroot audit: socket (BSD sockets without libsocket)\n  target_link_libraries(candaemon socket)\n  # These libraries do not exist in your QNX sysroot (their functions are in libc):\n  #   pthread, rt  -> remove them from target_link_libraries for QNX builds.\nendif()\n```\n\n**Verify**\n\n```sh\ncmake -B build-qnx -DCMAKE_TOOLCHAIN_FILE=cmake/qnx8-toolchain.cmake -DQNX_ARCH=x86_64 && cmake --build build-qnx\n```\n\n## Step 2: Replace the epoll loop\n\n*Category: api migration · effort M · files: src/candaemon.c*\n\nStart with poll() so the code builds and runs on QNX. Once it works, consider moving to a channel + pulse loop (see the resource-manager step) where each event source has its own pulse code and priority.\n\n**Before**\n\n```c\n/* src/candaemon.c */\nint ep = epoll_create1(EPOLL_CLOEXEC);\nint fds[] = { can, srv, flush_efd, sfd };\nfor (unsigned i = 0; i < sizeof fds / sizeof fds[0]; i++) {\n    struct epoll_event ev = { .events = EPOLLIN, .data.fd = fds[i] };\n    epoll_ctl(ep, EPOLL_CTL_ADD, fds[i], &ev);\n}\n```\n\n**After**\n\n```c\n#include <poll.h>\n\nstruct pollfd pfd[2] = {\n    { .fd = tfd, .events = POLLIN },\n    { .fd = cfd, .events = POLLIN },\n};\nint n = poll(pfd, 2, -1);\nif (n > 0 && (pfd[0].revents & POLLIN)) {\n    /* periodic work */\n}\n```\n\n**Verify**\n\n```sh\nqcc -Vgcc_ntox86_64 -fsyntax-only src/main.c\n```\n\n## Step 3: Introduce a CAN HAL with a QNX backend stub\n\n*Category: api migration · effort L · files: src/candaemon.c*\n\nDefine can_hal_open/can_hal_read/can_hal_close. Keep the SocketCAN backend for Linux. The QNX backend opens the CAN driver's device path and uses the driver's devctl commands; fill in the DCMD_* values from the driver you deploy.\n\n**Before**\n\n```c\n/* src/candaemon.c */\n{\n    int s = socket(PF_CAN, SOCK_RAW, CAN_RAW);\n    if (s < 0) { syslog(LOG_ERR, \"socket(PF_CAN): %m\"); return -1; }\n/* ... */\nstruct sockaddr_can addr = { .can_family = AF_CAN, .can_ifindex = ifr.ifr_ifindex };\nif (bind(s, (struct sockaddr *)&addr, sizeof addr) < 0) { syslog(LOG_ERR, \"bind: %m\"); return -1; }\nreturn s;\n```\n\n**After**\n\n```c\n/* can_hal.h */\ntypedef struct { uint32_t id; uint8_t dlc; uint8_t data[8]; } can_hal_frame_t;\nint  can_hal_open(const char *channel);           /* \"can0\" or \"/dev/can1/rx0\" */\nint  can_hal_read(int h, can_hal_frame_t *f);     /* blocking read */\nvoid can_hal_close(int h);\n```\n\n**Verify**\n\n```sh\nqcc -Vgcc_ntox86_64 -fsyntax-only src/can_hal_qnx.c\n```\n\n## Step 4: Turn eventfd wake-ups into pulses\n\n*Category: api migration · effort S · files: src/candaemon.c*\n\nCreate the notifier with the qnx_compat.h shim from the porting kit. On QNX it sends a pulse to the loop's channel; elsewhere it falls back to a pipe.\n\n**Before**\n\n```c\n/* src/candaemon.c */\nflush_efd = eventfd(0, EFD_NONBLOCK);\npthread_t th;\npthread_create(&th, NULL, flusher, NULL);\n```\n\n**After**\n\n```c\n#include \"qnx_compat.h\"\n\nqnx_notifier_t n;\nqnx_notifier_init(&n, chid, PULSE_CODE_FLUSH);\nqnx_notifier_signal(&n, 1);        /* MsgSendPulse under the hood */\n```\n\n**Verify**\n\n```sh\nqcc -Vgcc_ntox86_64 -fsyntax-only -Iinclude src/main.c\n```\n\n## Step 5: Handle signals in a sigwaitinfo() thread\n\n*Category: api migration · effort S · files: src/candaemon.c*\n\nBlock SIGTERM/SIGINT before creating threads, then wait for them in one thread.\n\n**Before**\n\n```c\n/* src/candaemon.c */\nsigprocmask(SIG_BLOCK, &mask, NULL);\nint sfd = signalfd(-1, &mask, SFD_NONBLOCK);\n\nint ep = epoll_create1(EPOLL_CLOEXEC);\n```\n\n**After**\n\n```c\nstatic void *signal_thread(void *arg)\n{\n    sigset_t *mask = arg;\n    siginfo_t si;\n    if (sigwaitinfo(mask, &si) > 0)\n        MsgSendPulse(main_coid, -1, PULSE_CODE_SHUTDOWN, si.si_signo);\n    return NULL;\n}\n/* in main(): pthread_sigmask(SIG_BLOCK, &mask, NULL); pthread_create(...) */\n```\n\n**Verify**\n\n```sh\nqcc -Vgcc_ntox86_64 -fsyntax-only src/main.c\n```\n\n## Step 6: Replace fork()/exec with posix_spawn()\n\n*Category: api migration · effort S · files: src/candaemon.c*\n\nUse posix_spawn(); for daemonizing, let the startup script background the process instead.\n\n**Before**\n\n```c\n/* src/candaemon.c */\n{\n    pid_t pid = fork();\n    if (pid < 0) exit(1);\n    if (pid > 0) exit(0);\n```\n\n**After**\n\n```c\n#include <spawn.h>\n\nextern char **environ;\npid_t pid;\nchar *const argv[] = { (char *)path, arg, NULL };\nint rc = posix_spawn(&pid, path, NULL, NULL, argv, environ);\n```\n\n**Verify**\n\n```sh\nqcc -Vgcc_ntox86_64 -fsyntax-only src/main.c\n```\n\n## Step 7: Wrap device control in a HAL\n\n*Category: api migration · effort M · files: src/candaemon.c*\n\nMove ioctl() calls behind functions such as hal_set_line(); implement the QNX side with devctl().\n\n**Before**\n\n```c\n/* src/candaemon.c */\nifr.ifr_name[IFNAMSIZ - 1] = '\\0';\nif (ioctl(s, SIOCGIFINDEX, &ifr) < 0) { syslog(LOG_ERR, \"SIOCGIFINDEX: %m\"); return -1; }\n\nstruct sockaddr_can addr = { .can_family = AF_CAN, .can_ifindex = ifr.ifr_ifindex };\n```\n\n**After**\n\n```c\n/* hal.h */\nint hal_serial_set_dtr(int fd, int on);\n\n/* hal_qnx.c */\n#include <devctl.h>\n#include <sys/dcmd_chr.h>\nint hal_serial_set_dtr(int fd, int on)\n{\n    int bits = on ? (_SERCTL_DTR | _SERCTL_DTR_CHG) : _SERCTL_DTR_CHG;\n    return devctl(fd, DCMD_CHR_SERCTL, &bits, sizeof bits, NULL);\n}\n```\n\n**Verify**\n\n```sh\nqcc -Vgcc_ntox86_64 -fsyntax-only src/hal_qnx.c\n```\n\n## Step 8: Replace Linux /proc parsing\n\n*Category: api migration · effort S · files: src/candaemon.c*\n\nUse DCMD_PROC_INFO on /proc/self/as instead of parsing text files.\n\n**Before**\n\n```c\n/* src/candaemon.c */\n{\n    FILE *f = fopen(\"/proc/self/statm\", \"r\");\n    long pages = 0, resident = 0;\n    if (f) { fscanf(f, \"%ld %ld\", &pages, &resident); fclose(f); }\n```\n\n**After**\n\n```c\n#include <sys/procfs.h>\n#include <devctl.h>\n\nint fd = open(\"/proc/self/as\", O_RDONLY);\nprocfs_info info;\nif (fd >= 0 && devctl(fd, DCMD_PROC_INFO, &info, sizeof info, NULL) == EOK) {\n    /* info.pid, info.num_threads, ... */\n}\n```\n\n**Verify**\n\n```sh\nqcc -Vgcc_ntox86_64 -fsyntax-only src/main.c\n```\n\n## Step 9: Expose the service as a /dev/candaemon resource manager\n\n*Category: resmgr conversion · effort L · files: src/qnx_candaemon_resmgr.c, src/candaemon_dcmd.h*\n\nStart from the kit's resource-manager skeleton. Clients open /dev/candaemon and use read(), write() and devctl() instead of a private socket or shared memory. The periodic work moves into the timer pulse handler, which runs serialized with client requests in one thread.\n\n**After**\n\n```c\nstatic int io_devctl(resmgr_context_t *ctp, io_devctl_t *msg, RESMGR_OCB_T *ocb)\n{\n    int status = iofunc_devctl_default(ctp, msg, ocb);\n    if (status != _RESMGR_DEFAULT)\n        return status;\n\n    void  *data = _DEVCTL_DATA(msg->i);\n    size_t nbytes = 0;\n\n    switch (msg->i.dcmd) {\n    case DCMD_CANDAEMON_GET_STATUS:\n        if (msg->i.nbytes < sizeof(state.status))\n            return EINVAL;\n        memcpy(data, &state.status, sizeof(state.status));\n        nbytes = sizeof(state.status);\n        break;\n    case DCMD_CANDAEMON_SET_VALUE: {\n        int32_t v;\n        if (msg->i.nbytes < sizeof v)\n            return EINVAL;\n        if (resmgr_msgread(ctp, &v, sizeof v, sizeof msg->i) != (ssize_t)sizeof v)\n            return EFAULT;\n        state.status.value = v;\n        break;\n    }\n    default:\n        return ENOSYS;\n    }\n\n    memset(&msg->o, 0, sizeof msg->o);\n    msg->o.ret_val = EOK;\n    msg->o.nbytes = (uint32_t)nbytes;\n    return _RESMGR_PTR(ctp, &msg->o, sizeof msg->o + nbytes);\n}\n```\n\n**Verify**\n\n```sh\nls -l /dev/candaemon && candaemonctl  # on the target\n```\n\n## Step 10: Use absolute-deadline sleeps for periodic work\n\n*Category: scheduling timing · effort S · files: src/candaemon.c*\n\nReplace relative sleeps in periodic loops with clock_nanosleep(TIMER_ABSTIME).\n\n**Before**\n\n```c\n/* src/candaemon.c */\nfor (;;) {\n    sleep(1);\n    uint64_t one = 1;\n    write(flush_efd, &one, sizeof one);\n```\n\n**After**\n\n```c\nstruct timespec next;\nclock_gettime(CLOCK_MONOTONIC, &next);\nfor (;;) {\n    do_work();\n    next.tv_nsec += PERIOD_NS;\n    while (next.tv_nsec >= 1000000000L) { next.tv_nsec -= 1000000000L; next.tv_sec++; }\n    clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &next, NULL);\n}\n```\n\n**Verify**\n\n```sh\nqcc -Vgcc_ntox86_64 -fsyntax-only src/main.c\n```\n\n## Step 11: Drop privileges with procmgr_ability()\n\n*Category: reliability security · effort M · files: candaemon.service*\n\nAfter privileged setup, allow the specific abilities the service still needs for the non-root domain, deny and lock everything else, then setuid() to a service user.\n\n**Before**\n\n```c\nUser=root\n```\n\n**After**\n\n```c\n#include <sys/procmgr.h>\n\n/* after resmgr_attach()/open() of privileged resources: */\nif (procmgr_ability(0,\n        PROCMGR_ADN_NONROOT | PROCMGR_AOP_ALLOW | PROCMGR_AOP_LOCK | PROCMGR_AID_PRIORITY,\n        PROCMGR_ADN_NONROOT | PROCMGR_AOP_DENY  | PROCMGR_AOP_LOCK | PROCMGR_AID_EOL) != EOK) {\n    return 1;\n}\nif (setgid(SERVICE_GID) == -1 || setuid(SERVICE_UID) == -1)\n    return 1;\n```\n\n**Verify**\n\n```sh\npidin -p <service> arg  # on target: confirm non-root uid\n```\n\n## Step 12: Replace systemd supervision with startup script + procmgr death notifications\n\n*Category: reliability security · effort M · files: candaemon.service*\n\nDaemonize with procmgr_daemon() and register PROCMGR_EVENT_DAEMON_DEATH pulse notifications (or attach to HAM if installed).\n\n**Before**\n\n```c\n[Unit]\nDescription=CAN telemetry aggregation daemon\nAfter=sys-subsystem-net-devices-can0.device\n\n[Service]\nType=forking\nExecStart=/usr/local/sbin/candaemon can0\nRestart=on-failure\nUser=root\n\n[Install]\nWantedBy=multi-user.target\n```\n\n**After**\n\n```c\n#include <sys/procmgr.h>\n#include <sys/siginfo.h>\n\nstruct sigevent ev;\nSIGEV_PULSE_INIT(&ev, main_coid, 20, PULSE_CODE_SHUTDOWN, 0);\nint handle = procmgr_event_notify_add(PROCMGR_EVENT_DAEMON_DEATH, &ev);\n(void)handle;\n```\n\n**Verify**\n\n```sh\npidin -F '%a %b %N'  # on target, confirm supervised daemon running\n```\n\n## Step 13: Optionally switch to slog2\n\n*Category: reliability security · effort S · files: src/candaemon.c*\n\nRegister a slog2 buffer set at start-up and route log calls through slog2f().\n\n**Before**\n\n```c\n/* src/candaemon.c */\nint s = socket(PF_CAN, SOCK_RAW, CAN_RAW);\nif (s < 0) { syslog(LOG_ERR, \"socket(PF_CAN): %m\"); return -1; }\n\nstruct ifreq ifr;\nstrncpy(ifr.ifr_name, ifname, IFNAMSIZ - 1);\nifr.ifr_name[IFNAMSIZ - 1] = '\\0';\nif (ioctl(s, SIOCGIFINDEX, &ifr) < 0) { syslog(LOG_ERR, \"SIOCGIFINDEX: %m\"); return -1; }\n\nstruct sockaddr_can addr = { .can_family = AF_CAN, .can_ifindex = ifr.ifr_ifindex };\n```\n\n**After**\n\n```c\n#include <sys/slog2.h>\n\nslog2_buffer_set_config_t cfg = {0};\nslog2_buffer_t buf;\ncfg.buffer_set_name = \"motor_pid\";\ncfg.num_buffers = 1;\ncfg.verbosity_level = SLOG2_INFO;\ncfg.buffer_config[0].buffer_name = \"main\";\ncfg.buffer_config[0].num_pages = 4;\nif (slog2_register(&cfg, &buf, 0) == 0)\n    slog2_set_default_buffer(buf);\nslog2f(NULL, 0, SLOG2_INFO, \"started, period=%d us\", 1000);\n```\n\n**Verify**\n\n```sh\nslog2info -b motor_pid  # on target\n```\n\n## Step 14: Build, deploy and verify on a QNX 8.0 target\n\n*Category: deploy verify · effort M · files: Makefile.qnx, target/run-qemu.sh*\n\nBuild the kit binaries with qcc, boot the QEMU target with mkqnximage, copy the binaries over SSH and run them under the advisor agent, which checks that the resource manager comes up and measures timer and IPC behaviour.\n\n**Verify**\n\n```sh\nadvisorctl verify /data/home/qnxuser/candaemon_resmgr --expect /dev/candaemon --timeout 5000\n```\n\n## Notes\n\n- Numbers measured on QEMU reflect virtualization overhead and are indicative only.\n- APIs in this guide were checked against your local SDP sysroot index.\n",
    "qcc_compiled": "not_applicable"
   }
  ],
@@ -1201,6 +1207,6 @@
   "ipc_server"
  ],
  "service_name": "candaemon",
- "generated_at_utc": "2026-11-09T21:40:11Z",
- "sysroot_verified": false
+ "generated_at_utc": "2026-11-10T22:17:52Z",
+ "sysroot_verified": true
 }

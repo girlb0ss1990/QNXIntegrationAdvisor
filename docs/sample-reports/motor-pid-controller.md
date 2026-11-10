@@ -1,31 +1,31 @@
 # QNX 8.0 Integration Report: samples/motor-pid-controller
 
-Commit `local` · mode M1 · SDP not found (unverified) · generated 2026-11-09T21:40:11Z
+Commit `local` · mode M1 · SDP 8.0.0 · generated 2026-11-10T22:17:53Z
 
 **Readiness score: 0/100** (score = max(0, 100 - sum(weight(severity) x min(hits, 3))); blocker 15, high 6, medium 2, low 1; guarded findings weigh 0)
 
-12 finding(s) across 5 file(s): 2 blocker, 1 high, 6 medium, 3 low, 0 info. Availability was judged against QNX 8.0 (no SDP found, unverified). Detected roles: device service, periodic control loop, daemon. Recommended shape on QNX: a /dev/motor_pid resource manager driven by a pulse timer. Readiness score 0/100 (deterministic formula).
+12 finding(s) across 5 file(s): 2 blocker, 1 high, 6 medium, 3 low, 0 info. 4 rule(s) depend on APIs missing from your QNX SDP 8.0.0 sysroot. Detected roles: device service, periodic control loop, daemon. Recommended shape on QNX: a /dev/motor_pid resource manager driven by a pulse timer. Readiness score 0/100 (deterministic formula).
 
 ## Compatibility audit
 
 | Severity | Rule | Sysroot | Locations | Guidance |
 | :--- | :--- | :--- | :--- | :--- |
-| blocker | LNX-EPOLL epoll event loop | unknown_no_sdp | `src/main.c:13`, `src/main.c:97`, `src/main.c:99`, `src/main.c:100` | epoll is a Linux-only readiness API. On QNX use POSIX poll()/select() for the lowest-effort port, or restructure the loop around a channel so I/O readiness (ionotify), timers and IPC all arrive as prioritized pulses on one receive call. |
-| blocker | LNX-TIMERFD timerfd periodic timer | unknown_no_sdp | `src/main.c:15`, `src/main.c:88`, `src/main.c:93` | Use a POSIX timer created with timer_create(CLOCK_MONOTONIC) whose sigevent is a pulse (SIGEV_PULSE_INIT) delivered to a channel. The receiving thread blocks in MsgReceivePulse() and wakes at the pulse priority you choose. For a simple loop, clock_nanosleep(TIMER_ABSTIME) avoids drift. |
-| high | LNX-SYSFS Linux /sys paths | unknown_no_sdp | `src/motor_io.c:16` | There is no sysfs on QNX. PWM, GPIO and thermal data come from board-specific resource managers. Hide these behind a HAL and implement the QNX backend for your board's drivers. |
-| medium | BLD-COMPILER Host-only compiler settings | unknown_no_sdp | `CMakeLists.txt:5`, `CMakeLists.txt:6` | Cross-compile with qcc/q++ and a -V variant (gcc_ntox86_64, gcc_ntoaarch64le). Remove host-only flags such as -march=native and hardcoded gcc, and do not fail the build when CMAKE_SYSTEM_NAME is not Linux. The kit's toolchain file sets all of this. |
-| medium | LNX-AFFINITY sched_setaffinity | unknown_no_sdp | `src/main.c:75`, `src/main.c:76` | On QNX pin threads with run-masks: ThreadCtl(_NTO_TCTL_RUNMASK_GET_AND_SET_INHERIT, ...) sets the calling thread's mask and the mask its children inherit. |
-| medium | LNX-IOCTL ioctl on device descriptors | unknown_no_sdp | `src/motor_io.c:22` | QNX offers ioctl() as a wrapper over devctl() for common requests, but driver-specific requests must be rewritten against the QNX driver's DCMD_* set. Wrap device access in a small hardware-abstraction layer (HAL) so the Linux and QNX implementations can live side by side. |
-| medium | LNX-LIBS Linux-only link libraries | unknown_no_sdp | `CMakeLists.txt:9` | On QNX the pthread, real-time and dynamic-loading functions are part of libc. Drop a -l flag only if that library is missing from the sysroot (the audit checks this). In CMake prefer find_package(Threads) + Threads::Threads. |
-| medium | LNX-PRIO-INV Mutex without priority inheritance in mixed-priority code | unknown_no_sdp | `src/main.c:67` | A mutex shared between threads of different priorities should use PTHREAD_PRIO_INHERIT so a low-priority holder is boosted while a high-priority thread waits. QNX message passing already applies client-priority inheritance by default, which is one reason to move shared state behind a resource manager. |
-| medium | LNX-SYSTEMD systemd unit / watchdog script | unknown_no_sdp | `motor-pid.service:1` | QNX targets have no systemd. Start the service from the image's startup script (or SLM where available), and use HAM (High Availability Manager) for restart policies: the service attaches with ham_attach_self() and sends ham_heartbeat(); HAM restarts it when heartbeats stop or it dies. Use only HAM APIs present in your sysroot (several *_control() calls were removed in 8.0.1). |
-| low | LNX-CPU-BUDGET Background threads next to a real-time loop | unknown_no_sdp | `src/main.c:80` | Adaptive partitioning (APS) is not part of QNX SDP 8.0. To bound a background thread's CPU use, run it under SCHED_SPORADIC (budget + replenishment period), watch its per-thread CPU-time clock with a timer to detect overruns, pin it away from the control core with a run-mask, or use the QNX Hypervisor for hard isolation. |
-| low | LNX-INOTIFY inotify file watching | unknown_no_sdp | `src/config_watch.c:4`, `src/config_watch.c:9`, `src/config_watch.c:11` | QNX 8.0 provides <sys/inotify.h>. Link with -lfsnotify and make sure the fsevmgr service runs on the target. This is a build-flag change, not a blocker. (link: -lfsnotify) |
-| low | LNX-PERIODIC-SLEEP sleep-based periodic loop | unknown_no_sdp | `src/main.c:55`, `src/main.c:58` | A relative sleep inside a loop drifts by the loop body's run time. Use clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, ...) with a running deadline, or a pulse timer when the thread also needs to receive other events. |
+| blocker | LNX-EPOLL epoll event loop | missing | `src/main.c:13`, `src/main.c:97`, `src/main.c:99`, `src/main.c:100` | epoll is a Linux-only readiness API. On QNX use POSIX poll()/select() for the lowest-effort port, or restructure the loop around a channel so I/O readiness (ionotify), timers and IPC all arrive as prioritized pulses on one receive call. |
+| blocker | LNX-TIMERFD timerfd periodic timer | missing | `src/main.c:15`, `src/main.c:88`, `src/main.c:93` | Use a POSIX timer created with timer_create(CLOCK_MONOTONIC) whose sigevent is a pulse (SIGEV_PULSE_INIT) delivered to a channel. The receiving thread blocks in MsgReceivePulse() and wakes at the pulse priority you choose. For a simple loop, clock_nanosleep(TIMER_ABSTIME) avoids drift. |
+| high | LNX-SYSFS Linux /sys paths | available | `src/motor_io.c:16` | There is no sysfs on QNX. PWM, GPIO and thermal data come from board-specific resource managers. Hide these behind a HAL and implement the QNX backend for your board's drivers. |
+| medium | BLD-COMPILER Host-only compiler settings | available | `CMakeLists.txt:5`, `CMakeLists.txt:6` | Cross-compile with qcc/q++ and a -V variant (gcc_ntox86_64, gcc_ntoaarch64le). Remove host-only flags such as -march=native and hardcoded gcc, and do not fail the build when CMAKE_SYSTEM_NAME is not Linux. The kit's toolchain file sets all of this. |
+| medium | LNX-AFFINITY sched_setaffinity | missing | `src/main.c:75`, `src/main.c:76` | On QNX pin threads with run-masks: ThreadCtl(_NTO_TCTL_RUNMASK_GET_AND_SET_INHERIT, ...) sets the calling thread's mask and the mask its children inherit. |
+| medium | LNX-IOCTL ioctl on device descriptors | available | `src/motor_io.c:22` | QNX offers ioctl() as a wrapper over devctl() for common requests, but driver-specific requests must be rewritten against the QNX driver's DCMD_* set. Wrap device access in a small hardware-abstraction layer (HAL) so the Linux and QNX implementations can live side by side. |
+| medium | LNX-LIBS Linux-only link libraries | missing | `CMakeLists.txt:9` | On QNX the pthread, real-time and dynamic-loading functions are part of libc. Drop a -l flag only if that library is missing from the sysroot (the audit checks this). In CMake prefer find_package(Threads) + Threads::Threads. |
+| medium | LNX-PRIO-INV Mutex without priority inheritance in mixed-priority code | available | `src/main.c:67` | A mutex shared between threads of different priorities should use PTHREAD_PRIO_INHERIT so a low-priority holder is boosted while a high-priority thread waits. QNX message passing already applies client-priority inheritance by default, which is one reason to move shared state behind a resource manager. |
+| medium | LNX-SYSTEMD systemd unit / watchdog script | available | `motor-pid.service:1` | QNX targets have no systemd. Start the service from the image's startup script (or SLM where available), daemonize with procmgr_daemon(), and supervise daemon processes using procmgr_event_notify_add(PROCMGR_EVENT_DAEMON_DEATH, ...) (or HAM where the optional High Availability package is installed). |
+| low | LNX-CPU-BUDGET Background threads next to a real-time loop | available | `src/main.c:80` | Adaptive partitioning (APS) is not part of QNX SDP 8.0. To bound a background thread's CPU use, run it under SCHED_SPORADIC (budget + replenishment period), watch its per-thread CPU-time clock with a timer to detect overruns, pin it away from the control core with a run-mask, or use the QNX Hypervisor for hard isolation. |
+| low | LNX-INOTIFY inotify file watching | available | `src/config_watch.c:4`, `src/config_watch.c:9`, `src/config_watch.c:11` | QNX 8.0 provides <sys/inotify.h>. Link with -lfsnotify and make sure the fsevmgr service runs on the target. This is a build-flag change, not a blocker. (link: -lfsnotify) |
+| low | LNX-PERIODIC-SLEEP sleep-based periodic loop | available | `src/main.c:55`, `src/main.c:58` | A relative sleep inside a loop drifts by the loop body's run time. Use clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, ...) with a running deadline, or a pulse timer when the thread also needs to receive other events. |
 
 ## Pillar 1: Relevant QNX features
 
-### channels pulses (relevance 5/5)
+### channels pulses (relevance 5/5) ✓ sysroot
 
 Component: `src/main.c`
 
@@ -41,7 +41,7 @@ flowchart LR
   CH --> L["MsgReceivePulse loop"]
 ```
 
-### resource manager (relevance 5/5)
+### resource manager (relevance 5/5) ✓ sysroot
 
 Component: `src/motor_io.c`
 
@@ -56,7 +56,7 @@ flowchart LR
   R --> D["device driver resmgr"]
 ```
 
-### sporadic scheduling (relevance 5/5)
+### sporadic scheduling (relevance 5/5) ✓ sysroot
 
 Component: `src/main.c`
 
@@ -64,22 +64,21 @@ Background work in `src/main.c` can be given a CPU budget per replenishment peri
 
 APIs: `pthread_attr_setschedpolicy`, `SCHED_SPORADIC`, `pthread_attr_setschedparam`
 
-### ham (relevance 3/5)
+### ham (relevance 3/5) ✓ sysroot
 
 Component: `motor-pid.service`
 
-`motor-pid.service` relies on systemd or scripts for restarts. HAM supervises the process from outside its address space; with a heartbeat it also catches a hung process, not only a dead one.
+`motor-pid.service` relies on systemd or scripts for restarts. On QNX 8.0, procmgr_daemon() and procmgr_event_notify_add(PROCMGR_EVENT_DAEMON_DEATH) notify a guardian via kernel pulse immediately on process termination (or use HAM when the optional HA package is installed).
 
-APIs: `ham_attach_self`, `ham_heartbeat`, `ham_detach_self`
+APIs: `procmgr_daemon`, `procmgr_event_notify_add`, `PROCMGR_EVENT_DAEMON_DEATH`, `posix_spawn`, `waitid`
 
 ```mermaid
 flowchart LR
-  S["motor_pid"] -->|"ham_heartbeat every 0.5 s"| H["HAM"]
-  H -->|"missed heartbeats or death"| A["restart action"]
-  A --> S
+  S["motor_pid daemon"] -->|"PROCMGR_EVENT_DAEMON_DEATH pulse"| G["procmgr / guardian"]
+  G -->|"posix_spawn restart"| S
 ```
 
-### priority inheritance (relevance 3/5)
+### priority inheritance (relevance 3/5) ✓ sysroot
 
 Component: `src/main.c`
 
@@ -87,7 +86,7 @@ Component: `src/main.c`
 
 APIs: `pthread_mutexattr_setprotocol`, `PTHREAD_PRIO_INHERIT`, `MsgSend`
 
-### runmask affinity (relevance 3/5)
+### runmask affinity (relevance 3/5) ✓ sysroot
 
 Component: `src/main.c`
 
@@ -95,7 +94,7 @@ Component: `src/main.c`
 
 APIs: `ThreadCtl`, `_NTO_TCTL_RUNMASK_GET_AND_SET_INHERIT`, `RMSK_SET`
 
-### cpu time budget monitoring (relevance 2/5)
+### cpu time budget monitoring (relevance 2/5) ✓ sysroot
 
 Component: `src/main.c`
 
@@ -103,13 +102,13 @@ Read each worker thread's CPU-time clock from `src/main.c` periodically (or arm 
 
 APIs: `pthread_getcpuclockid`, `clock_gettime`, `ClockId`, `timer_create`
 
-### tracelogger (relevance 2/5)
+### tracelogger (relevance 2/5) ✓ sysroot
 
 Component: `src/main.c`
 
 Capture a kernel event trace with tracelogger while motor_pid runs and inspect scheduling, IPC and interrupts in the System Profiler (Momentics or the VS Code QNX Toolkit) to confirm the timing behaviour after porting.
 
-### hypervisor (relevance 1/5)
+### hypervisor (relevance 1/5) ✓ sysroot
 
 Component: `src/main.c`
 
@@ -122,7 +121,7 @@ When motor_pid must be isolated from untrusted or heavy workloads with stronger 
 - **determinism latency** [static] CPU pinning uses a glibc-specific API. → Run-masks pin the control thread and its children to a reserved core. (`src/main.c:75`, `src/main.c:76`)
 - **maintainability portability** [static] Device control calls are scattered through application code and tied to Linux request codes. → A HAL with a devctl()-based QNX backend isolates board-specific commands in one file. (`src/motor_io.c:22`)
 - **determinism latency** [static] A high-priority control thread and a low-priority thread share a default mutex. If the low-priority holder is preempted, the control thread waits indefinitely (priority inversion). → With PTHREAD_PRIO_INHERIT the holder runs at the waiter's priority until it unlocks. The agent's timer benchmark under load shows the effect on wake-up lateness. (`src/main.c:67`)
-- **fault isolation recovery** [static] Restart policy lives in systemd or a cron script, which QNX targets do not have. → HAM supervises the process from a separate address space and restarts it on death or missed heartbeats. (`motor-pid.service:1`)
+- **fault isolation recovery** [static] Restart policy lives in systemd or a cron script, which QNX targets do not have. → procmgr_event_notify_add(PROCMGR_EVENT_DAEMON_DEATH) delivers a kernel pulse the instant a supervised daemon terminates so a lightweight guardian or HAM can respawn it. (`motor-pid.service:1`)
 - **determinism latency** [static] Background threads have no CPU budget; a runaway worker can starve lower-priority work and delay the loop. → SCHED_SPORADIC caps a worker's high-priority execution per period, and a CPU-time clock lets the service detect overruns. (`src/main.c:80`)
 - **determinism latency** [static] Relative sleeps accumulate drift equal to the loop body's execution time. → Absolute-deadline sleeps or pulse timers keep the period fixed. (`src/main.c:55`, `src/main.c:58`)
 - **determinism latency** [qualitative] The periodic loop's wake-up lateness under background CPU load is unknown on QNX. → Run the agent's timer benchmark (1 kHz pulse timer, SCHED_FIFO) with and without low-priority load threads to measure wake-up lateness on your target.
@@ -156,7 +155,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "QNX")
   target_include_directories(motor_pid PRIVATE ${CMAKE_CURRENT_LIST_DIR}/../include)
   # From the sysroot audit: fsnotify (inotify file watching)
   target_link_libraries(motor_pid fsnotify)
-  # On QNX these functions are normally in libc (unverified: no SDP was indexed):
+  # These libraries do not exist in your QNX sysroot (their functions are in libc):
   #   pthread, rt  -> remove them from target_link_libraries for QNX builds.
 endif()
 ```
@@ -165,7 +164,7 @@ Verify: `cmake -B build-qnx -DCMAKE_TOOLCHAIN_FILE=cmake/qnx8-toolchain.cmake -D
 
 ### 2. Replace the epoll loop
 
-*api_migration · effort M · qcc snippet check: skipped*
+*api_migration · effort M · qcc snippet check: failed*
 
 Start with poll() so the code builds and runs on QNX. Once it works, consider moving to a channel + pulse loop (see the resource-manager step) where each event source has its own pulse code and priority.
 
@@ -216,7 +215,7 @@ Verify: `grep -rn '"/sys/' src/  # should be empty outside hal_linux.c`
 
 ### 4. Wrap device control in a HAL
 
-*api_migration · effort M · qcc snippet check: skipped*
+*api_migration · effort M · qcc snippet check: failed*
 
 Move ioctl() calls behind functions such as hal_set_line(); implement the QNX side with devctl().
 
@@ -250,7 +249,7 @@ Verify: `qcc -Vgcc_ntox86_64 -fsyntax-only src/hal_qnx.c`
 
 ### 5. Expose the service as a /dev/motor_pid resource manager
 
-*resmgr_conversion · effort L · qcc snippet check: skipped*
+*resmgr_conversion · effort L · qcc snippet check: failed*
 
 Start from the kit's resource-manager skeleton. Clients open /dev/motor_pid and use read(), write() and devctl() instead of a private socket or shared memory. The periodic work moves into the timer pulse handler, which runs serialized with client requests in one thread.
 
@@ -297,7 +296,7 @@ Verify: `ls -l /dev/motor_pid && motor_pidctl  # on the target`
 
 ### 6. Replace timerfd with a pulse-delivering POSIX timer
 
-*scheduling_timing · effort M · qcc snippet check: skipped*
+*scheduling_timing · effort M · qcc snippet check: failed*
 
 The kit's qnx_compat.h provides qnx_periodic_timer_create()/qnx_periodic_timer_wait() built on timer_create() + SIGEV_PULSE_INIT + MsgReceivePulse(). Keep the control-loop body unchanged.
 
@@ -334,7 +333,7 @@ Verify: `qcc -Vgcc_ntox86_64 -fsyntax-only -Iinclude src/main.c`
 
 ### 7. Pin the control thread with a run-mask
 
-*scheduling_timing · effort S · qcc snippet check: skipped*
+*scheduling_timing · effort S · qcc snippet check: failed*
 
 Replace sched_setaffinity() with ThreadCtl() and a run-mask.
 
@@ -362,7 +361,7 @@ Verify: `pidin -p <service> -F '%a %b %N %i'  # on target`
 
 ### 8. Enable priority inheritance on shared mutexes
 
-*scheduling_timing · effort S · qcc snippet check: skipped*
+*scheduling_timing · effort S · qcc snippet check: failed*
 
 Initialize the mutex with a PTHREAD_PRIO_INHERIT attribute.
 
@@ -388,7 +387,7 @@ Verify: `advisorctl bench-timer --load 4  # compare lateness before/after`
 
 ### 9. Bound background threads with SCHED_SPORADIC
 
-*scheduling_timing · effort M · qcc snippet check: skipped*
+*scheduling_timing · effort M · qcc snippet check: failed*
 
 Give the telemetry/worker thread a sporadic budget and low replenishment priority.
 
@@ -420,7 +419,7 @@ Verify: `pidin -p <service> -F '%a %b %p %i'  # policy column shows sporadic`
 
 ### 10. Use absolute-deadline sleeps for periodic work
 
-*scheduling_timing · effort S · qcc snippet check: skipped*
+*scheduling_timing · effort S · qcc snippet check: failed*
 
 Replace relative sleeps in periodic loops with clock_nanosleep(TIMER_ABSTIME).
 
@@ -452,11 +451,11 @@ for (;;) {
 
 Verify: `qcc -Vgcc_ntox86_64 -fsyntax-only src/main.c`
 
-### 11. Replace systemd supervision with startup script + HAM
+### 11. Replace systemd supervision with startup script + procmgr death notifications
 
-*reliability_security · effort M · qcc snippet check: skipped*
+*reliability_security · effort M · qcc snippet check: failed*
 
-Launch from the image startup script and add a HAM heartbeat.
+Daemonize with procmgr_daemon() and register PROCMGR_EVENT_DAEMON_DEATH pulse notifications (or attach to HAM if installed).
 
 Before:
 
@@ -478,14 +477,16 @@ WatchdogSec=2
 After:
 
 ```c
-#include <ha/ham.h>
+#include <sys/procmgr.h>
+#include <sys/siginfo.h>
 
-ham_entity_t *e = ham_attach_self("motor_pid", 500000000ULL /* 0.5 s */, 4, 8, 0);
-/* in the loop */
-ham_heartbeat();
+struct sigevent ev;
+SIGEV_PULSE_INIT(&ev, main_coid, 20, PULSE_CODE_SHUTDOWN, 0);
+int handle = procmgr_event_notify_add(PROCMGR_EVENT_DAEMON_DEATH, &ev);
+(void)handle;
 ```
 
-Verify: `ls /proc/ham  # on target, HAM running`
+Verify: `pidin -F '%a %b %N'  # on target, confirm supervised daemon running`
 
 ### 12. Build, deploy and verify on a QNX 8.0 target
 

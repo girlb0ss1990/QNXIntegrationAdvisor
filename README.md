@@ -8,7 +8,8 @@ Give it a GitHub/GitLab/Bitbucket URL or a local checkout and it produces:
    `nto*-nm`), so "is `epoll_wait` available? which library has `inotify_add_watch`?" is answered
    from your sysroot, not from memory.
 2. **A three-pillar integration report:** relevant QNX features and why (resource managers,
-   channels/pulses, priority inheritance, `SCHED_SPORADIC`, run-masks, HAM, `procmgr_ability()`,
+   channels/pulses, priority inheritance, `SCHED_SPORADIC`, run-masks, `procmgr` daemon-death
+   notifications (HAM where the optional HA package is installed), `procmgr_ability()`,
    slog2, tracelogger), concrete improvements tied to source lines, and ordered step-by-step
    guidance with before/after code and a verification command per step.
 3. **A QNX 8.0 porting kit:** CMake toolchain file, only the compatibility shims the repo needs,
@@ -84,11 +85,17 @@ output never reaches a shell.
 | Compiler | `qcc` from the SDP; version printed at runtime by `make env-info` (never hardcoded) |
 | Python / Node | 3.11+ / 20 |
 
-> [!IMPORTANT]
-> The M1 pipeline, web UI, tests and evaluation were run on Windows 11 without an SDP. The
-> native agent (`qnx-target/`), the kit templates and the M3 flow are written for QNX 8.0 but
-> must be compiled with `make agent` / `make qnx-check` on a machine with the SDP before
-> submission, and the log committed as `docs/qnx-check-log.txt`.
+> [!NOTE]
+> Checked on Ubuntu (WSL2) with QNX SDP 8.0.0 and `qcc` 12.2.0:
+> - `make agent`: the native agent and `advisorctl` build for x86_64 and aarch64le with
+>   `-Wall -Wextra -Werror`.
+> - `make qnx-check`: 18/18 kit compilations succeed with 0 warnings
+>   ([`docs/qnx-check-log.txt`](docs/qnx-check-log.txt)).
+> - `make rules-validate`: every API the rules recommend exists in the SDP 8.0.0 sysroot index.
+>
+> The M1 pipeline, web UI, tests and evaluation also run on Windows 11 without an SDP.
+> The full `make demo` verification on a QEMU target has not yet produced a clean record:
+> the benchmarks ran, but the `/dev/advisor` verify step failed on the first attempt.
 
 ## Evidence of QNX use
 

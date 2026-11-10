@@ -64,6 +64,15 @@ def run_verification(report: IntegrationReport, sdp: SdpInstall, target: Target,
     v = _advisorctl(target, ["verify", f"{REMOTE_DIR}/{resmgr.name}", "--expect", f"/dev/{svc}",
                              "--timeout", "5000"], timeout=30)
     emit("verify", v)
+    notes: list[str] = []
+    if v.get("ok") is False and "error" in v:
+        # advisorctl could not run the verification at all (devctl failed); keep the reason.
+        notes.append(f"verify failed: {v['error']}")
+        emit("verify_error", {"message": notes[-1]})
+    elif v.get("timed_out"):
+        notes.append(f"verify timed out waiting for /dev/{svc}")
+    elif v.get("spawn_errno"):
+        notes.append(f"verify spawn failed: errno {v['spawn_errno']}")
     exit_status = int(v.get("exit_status", -1))
     if v.get("path_ready_ns", 0) > 0:
         metrics["resmgr_ready_ms"] = round(v["path_ready_ns"] / 1e6, 3)
@@ -94,7 +103,7 @@ def run_verification(report: IntegrationReport, sdp: SdpInstall, target: Target,
         sdp_version=sdp.version, target_kind=kind or _target_kind(uname, arch),  # type: ignore[arg-type]
         exit_status=exit_status, metrics=metrics,
         timestamp_utc=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-        note="QEMU, indicative only" if "qemu" in (kind or _target_kind(uname, arch)) else "",
+        note="; ".join((["QEMU, indicative only"] if "qemu" in (kind or _target_kind(uname, arch)) else []) + notes),
     )
     link_measurements(report, rec)
     return rec

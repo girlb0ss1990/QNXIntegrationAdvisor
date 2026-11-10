@@ -95,10 +95,10 @@ def test_readiness_score_formula():
 
 def test_validate_reports_missing_apis(fake_index):
     del fake_index.symbols["ionotify"]
-    fake_index.headers.discard("ha/ham.h")
+    fake_index.headers.discard("sys/slog2.h")
     problems = validate(fake_index)
     assert any("LNX-EPOLL: 'ionotify'" in p for p in problems)
-    assert any("<ha/ham.h>" in p for p in problems)
+    assert any("<sys/slog2.h>" in p for p in problems)
     known = {a for r in load_rules() for alt in r.alternatives for a in alt.get("apis", [])}
     known |= {a for f in load_features().values() for a in f.get("apis", [])}
     fake_index.declared |= known

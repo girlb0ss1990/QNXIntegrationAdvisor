@@ -63,17 +63,16 @@ runmask_affinity:
     that child threads inherit, keeping the control core free of background work.
 
 ham:
-  apis: ["ham_attach_self", "ham_heartbeat", "ham_detach_self"]
-  headers: ["ha/ham.h"]
+  apis: ["procmgr_daemon", "procmgr_event_notify_add", "PROCMGR_EVENT_DAEMON_DEATH", "posix_spawn", "waitid"]
+  headers: ["sys/procmgr.h", "spawn.h", "sys/wait.h"]
   rationale: >-
-    {component} relies on systemd or scripts for restarts. HAM supervises the process from
-    outside its address space; with a heartbeat it also catches a hung process, not only a
-    dead one.
+    {component} relies on systemd or scripts for restarts. On QNX 8.0, procmgr_daemon()
+    and procmgr_event_notify_add(PROCMGR_EVENT_DAEMON_DEATH) notify a guardian via kernel
+    pulse immediately on process termination (or use HAM when the optional HA package is installed).
   diagram: |
     flowchart LR
-      S["{service}"] -->|"ham_heartbeat every 0.5 s"| H["HAM"]
-      H -->|"missed heartbeats or death"| A["restart action"]
-      A --> S
+      S["{service} daemon"] -->|"PROCMGR_EVENT_DAEMON_DEATH pulse"| G["procmgr / guardian"]
+      G -->|"posix_spawn restart"| S
 
 procmgr_ability:
   apis: ["procmgr_ability", "setuid"]
