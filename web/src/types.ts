@@ -43,3 +43,20 @@ export interface EnvInfo {
   target: { spec: string; reachable: boolean; detail: string } | null;
 }
 export interface JobEvent { event: string; data: Record<string, unknown> }
+
+// ----- Setup page
+export interface SetupCheck {
+  id: string; label: string; status: "ok" | "warn" | "missing" | "optional"; detail: string; fix: string; required: boolean;
+}
+export interface ProviderInfo {
+  id: string; label: string; key_env: string; model_env: string; default_model: string; key_url: string; key_hint: string; blurb: string;
+}
+export interface LlmTest { ok: boolean; message: string; latency_ms?: number; tested_utc?: string; provider?: string; model?: string }
+export interface LlmStatus {
+  providers: ProviderInfo[];
+  active: null | {
+    provider: string; label: string; model: string; default_model: string; key_masked: string;
+    source: "settings" | "environment"; key_env: string; last_test: LlmTest | null;
+  };
+}
+export interface SetupInfo { checks: SetupCheck[]; llm: LlmStatus }

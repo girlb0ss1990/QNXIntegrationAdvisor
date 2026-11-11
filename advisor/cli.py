@@ -171,6 +171,8 @@ def main(argv: list[str] | None = None) -> int:
     s.set_defaults(fn=cmd_serve)
 
     args = p.parse_args(argv)
+    from .settings import apply_settings
+    apply_settings()          # AI key/model saved from the web UI's Setup page also apply to the CLI
     return args.fn(args)
 
 

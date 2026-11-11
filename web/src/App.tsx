@@ -1,24 +1,40 @@
 import { useCallback, useEffect, useState } from "react";
 import { STATIC_VIEWER, createJob, getEnv, getReport, getSample, listSamples, subscribe, type SampleRef } from "./api";
 import { AuditTab, KitTab, PillarsTab, Summary } from "./components/Report";
+import { SetupPage } from "./components/Setup";
 import { VerifyTab } from "./components/Verify";
 import type { EnvInfo, IntegrationReport, JobEvent } from "./types";
 
 const STAGES = ["clone", "scan", "sysroot", "rules", "synth", "guard", "kit", "qcc"];
 type Tab = "audit" | "pillars" | "kit" | "verify";
 
-function Header({ env }: { env: EnvInfo | null }) {
+const MODE_NAME: Record<string, string> = {
+  M0: "Sample viewer", M1: "Standard analysis", M2: "AI-assisted available", M3: "Live QNX target connected",
+};
+
+function Header({ env, onSetup, inSetup }: { env: EnvInfo | null; onSetup: () => void; inSetup: boolean }) {
   return (
     <header className="top">
       <div className="brand"><span className="logo">✚</span> QNX Integration Advisor</div>
-      {env && (
-        <div className="mode" title={env.mode_reason}>
-          <span className={`mode-pill mode-${env.mode}`}>{env.mode}</span>
-          <span className="mode-reason">{env.mode_reason}</span>
-        </div>
-      )}
+      <div className="top-right">
+        {env && (
+          <div className="mode" title={env.mode_reason}>
+            <span className={`mode-pill mode-${env.mode}`}>{env.mode}</span>
+            <span className="mode-reason">{MODE_NAME[env.mode] ?? ""}
+              {env.mode !== "M0" && <> · AI {env.llm ? "on" : "off"} · QNX SDP {env.sdp ? "found" : "not found"}</>}</span>
+          </div>
+        )}
+        {!STATIC_VIEWER && (
+          <button className={inSetup ? "btn setup-btn on" : "btn setup-btn"} onClick={onSetup} aria-pressed={inSetup}>⚙ Setup</button>
+        )}
+      </div>
     </header>
   );
+}
+
+const WELCOME_KEY = "qnx-advisor-welcome-dismissed";
+function readDismissed(): boolean {
+  try { return localStorage.getItem(WELCOME_KEY) === "1"; } catch { return false; }
 }
 
 function Progress({ events }: { events: JobEvent[] }) {
@@ -48,9 +64,20 @@ export default function App() {
   const [report, setReport] = useState<IntegrationReport | null>(null);
   const [tab, setTab] = useState<Tab>("audit");
   const [error, setError] = useState<string | null>(null);
+  const [view, setView] = useState<"analyze" | "setup">("analyze");
+  const [welcomeDismissed, setWelcomeDismissed] = useState(readDismissed);
+
+  const loadEnv = useCallback(() => {
+    getEnv().then((e) => { setEnv(e); if (!e.llm) setUseLlm(false); })
+      .catch((e) => setError(`Cannot reach the local server: ${e}`));
+  }, []);
+  const dismissWelcome = () => {
+    setWelcomeDismissed(true);
+    try { localStorage.setItem(WELCOME_KEY, "1"); } catch { /* storage unavailable */ }
+  };
 
   useEffect(() => {
-    getEnv().then(setEnv).catch((e) => setError(`Cannot reach the local server: ${e}`));
+    loadEnv();
     listSamples().then(setSamples).catch(() => setSamples([]));
   }, []);
 
@@ -75,8 +102,21 @@ export default function App() {
 
   return (
     <div className="app">
-      <Header env={env} />
+      <Header env={env} inSetup={view === "setup"} onSetup={() => setView(view === "setup" ? "analyze" : "setup")} />
       <main>
+        {view === "setup" && <SetupPage onChanged={loadEnv} onClose={() => setView("analyze")} />}
+        {view === "analyze" && <>
+        {!STATIC_VIEWER && !welcomeDismissed && env && (
+          <div className="welcome">
+            <div>
+              <strong>Welcome!</strong> Paste a link to a C or C++ project on GitHub (or a folder on this computer) and
+              press <strong>Analyze</strong> to see what it needs to run on QNX 8.0. Or open a sample report below.
+              {" "}Open <button className="link inline" onClick={() => setView("setup")}>Setup</button> to check
+              everything is connected and to turn on the optional AI assistant.
+            </div>
+            <button className="close" onClick={dismissWelcome} aria-label="Dismiss welcome message">×</button>
+          </div>
+        )}
         {!STATIC_VIEWER && (
           <section className="new-scan">
             <input className="source" value={source} onChange={(e) => setSource(e.target.value)}
@@ -85,9 +125,14 @@ export default function App() {
             <select value={arch} onChange={(e) => setArch(e.target.value)} aria-label="target architecture">
               <option value="x86_64">x86_64</option><option value="aarch64le">aarch64le</option>
             </select>
-            <label className="check" title={env?.llm ? `provider ${env.llm}` : "set ANTHROPIC_API_KEY, GEMINI_API_KEY or OPENAI_API_KEY"}>
-              <input type="checkbox" checked={useLlm} disabled={!env?.llm} onChange={(e) => setUseLlm(e.target.checked)} /> AI-assisted
-            </label>
+            {env?.llm ? (
+              <label className="check" title={`Uses ${env.llm}. Billed by your AI provider.`}>
+                <input type="checkbox" checked={useLlm} onChange={(e) => setUseLlm(e.target.checked)} /> AI-assisted
+              </label>
+            ) : (
+              <button className="link ai-off" onClick={() => setView("setup")} title="The AI assistant is optional">
+                Turn on AI…</button>
+            )}
             <button className="btn primary" disabled={!source.trim() || running} onClick={start}>{running ? "Analyzing…" : "Analyze"}</button>
           </section>
         )}
@@ -123,6 +168,7 @@ export default function App() {
             </>)}
           </>
         )}
+        </>}
       </main>
       <footer>Local-first: QNX SDP content stays on this machine. Apache-2.0.</footer>
     </div>

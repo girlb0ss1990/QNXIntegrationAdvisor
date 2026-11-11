@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal, Optional
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse, Response, StreamingResponse
 from pydantic import BaseModel
 
@@ -91,14 +91,43 @@ class JobRequest(BaseModel):
     use_llm: bool = False
 
 
+class LLMSettingsRequest(BaseModel):
+    provider: str
+    api_key: Optional[str] = None
+    model: Optional[str] = None
+
+
+LOCAL_ORIGIN_HOSTS = {"127.0.0.1", "localhost", "[::1]"}
+
+
+def _is_local_origin(origin: str) -> bool:
+    from urllib.parse import urlsplit
+    try:
+        return (urlsplit(origin).hostname or "") in {h.strip("[]") for h in LOCAL_ORIGIN_HOSTS}
+    except ValueError:
+        return False
+
+
 class VerifyRequest(BaseModel):
     target: Optional[str] = None
     arch: Literal["x86_64", "aarch64le"] = "x86_64"
 
 
 def create_app(sdp: str | None = None, target: str | None = None) -> FastAPI:
+    from .settings import apply_settings
+    apply_settings()          # saved AI key/model from the Setup page take effect for this process
     app = FastAPI(title="QNX Integration Advisor", version="0.1.0")
     jobs: dict[str, Job] = {}
+
+    @app.middleware("http")
+    async def same_origin_writes(request: Request, call_next):
+        # Any web page can send requests to localhost. Refuse state-changing requests that a browser
+        # marks as coming from another site, so a malicious page cannot set keys or start jobs.
+        if request.method not in ("GET", "HEAD", "OPTIONS"):
+            origin = request.headers.get("origin")
+            if origin and not _is_local_origin(origin):
+                return JSONResponse({"detail": "cross-site request refused"}, status_code=403)
+        return await call_next(request)
     slots = threading.BoundedSemaphore(MAX_CONCURRENT_JOBS)
     state = {"target": target}
 
@@ -241,6 +270,32 @@ def create_app(sdp: str | None = None, target: str | None = None) -> FastAPI:
     def api_trace(job_id: str):
         require_report(job_id)
         raise HTTPException(404, "no kernel trace captured for this job (tracelogger capture is optional)")
+
+    # ----- Setup page: plain-language checklist, AI key management, connection test
+    @app.get("/api/setup")
+    def api_setup():
+        from .settings import llm_status, setup_checks
+        return {"checks": setup_checks(sdp), "llm": llm_status()}
+
+    @app.post("/api/settings/llm")
+    def api_save_llm(req: LLMSettingsRequest):
+        from .settings import SettingsError, llm_status, save_llm
+        try:
+            save_llm(req.provider, req.api_key, req.model)
+        except SettingsError as e:
+            raise HTTPException(400, str(e)) from e
+        return llm_status()
+
+    @app.delete("/api/settings/llm")
+    def api_clear_llm():
+        from .settings import clear_llm, llm_status
+        clear_llm()
+        return llm_status()
+
+    @app.post("/api/settings/llm/test")
+    def api_test_llm():
+        from .settings import test_llm
+        return test_llm()
 
     @app.get("/api/samples")
     def api_samples():

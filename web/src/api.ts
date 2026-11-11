@@ -1,4 +1,4 @@
-import type { EnvInfo, IntegrationReport, JobEvent } from "./types";
+import type { EnvInfo, IntegrationReport, JobEvent, LlmStatus, LlmTest, SetupInfo } from "./types";
 
 declare const __STATIC_VIEWER__: boolean;
 export const STATIC_VIEWER: boolean = __STATIC_VIEWER__;
@@ -65,4 +65,24 @@ export function subscribe(jobId: string, since: number, onEvent: (e: JobEvent) =
   }
   es.onerror = () => es.close();
   return () => es.close();
+}
+
+// ----- Setup page
+
+export async function getSetup(): Promise<SetupInfo> {
+  return json(await fetch("api/setup"));
+}
+
+export async function saveLlm(body: { provider: string; api_key?: string; model?: string }): Promise<LlmStatus> {
+  return json(await fetch("api/settings/llm", {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+  }));
+}
+
+export async function clearLlm(): Promise<LlmStatus> {
+  return json(await fetch("api/settings/llm", { method: "DELETE" }));
+}
+
+export async function testLlm(): Promise<LlmTest> {
+  return json(await fetch("api/settings/llm/test", { method: "POST" }));
 }

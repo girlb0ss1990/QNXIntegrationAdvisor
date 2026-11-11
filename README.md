@@ -33,7 +33,8 @@ the web UI ships pre-built.
 2. Start it:
    - **Windows:** double-click **`start.bat`**.
    - **Linux / WSL2 / macOS:** run `./start.sh` in the project folder.
-3. Your browser opens at **http://127.0.0.1:8765**. Paste a GitHub/GitLab/Bitbucket URL or a local
+3. Your browser opens at **http://127.0.0.1:8765**. Click **⚙ Setup** to check everything is
+   connected and, optionally, add an AI key. Then paste a GitHub/GitLab/Bitbucket URL or a local
    folder path and click **Analyze**, or click one of the sample reports.
 
 The first start takes a minute or two while it installs into a private `.venv` folder. Later starts
@@ -81,8 +82,15 @@ make demo               # scan -> kit -> verify on the VM -> docs/sample-verific
 
 ### AI-assisted mode (optional)
 
-Set one API key, then tick **AI-assisted** in the UI (or pass `--llm`). When several keys are set,
-the first in this table wins; override with `QNX_ADVISOR_LLM=openrouter|claude|gemini|openai`.
+**Easiest:** click **⚙ Setup** in the top-right corner of the web UI. Pick a provider (OpenRouter is
+the simplest: one key for many models), paste your API key and press **Save and test connection**.
+The Setup page also shows a plain-language checklist (Git, code parser, AI, QNX SDP) with a
+"how to fix" line for anything missing. Keys saved there stay on your computer
+(`~/.qnx-advisor/settings.json`), are shown only masked, and also apply to the CLI.
+
+Power users can set an environment variable instead. When several keys are set, the first in this
+table wins; override with `QNX_ADVISOR_LLM=openrouter|claude|gemini|openai`. A key saved on the
+Setup page takes priority over environment variables.
 
 | Key | Provider | Default model | Change model with |
 | :--- | :--- | :--- | :--- |
