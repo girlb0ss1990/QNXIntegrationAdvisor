@@ -197,7 +197,7 @@ static int drop_privileges(uid_t uid)
     int rc = procmgr_ability(0,
         PROCMGR_ADN_NONROOT | PROCMGR_AOP_ALLOW | PROCMGR_AOP_INHERIT_YES | PROCMGR_AOP_LOCK | PROCMGR_AID_PATHSPACE,
         PROCMGR_ADN_NONROOT | PROCMGR_AOP_ALLOW | PROCMGR_AOP_INHERIT_YES | PROCMGR_AOP_LOCK | PROCMGR_AID_PRIORITY,
-        PROCMGR_ADN_NONROOT | PROCMGR_AOP_DENY | PROCMGR_AOP_LOCK | PROCMGR_AID_EOL);
+        PROCMGR_AID_EOL);
     if (rc != EOK) {
         LOG_ERR("procmgr_ability: %s", strerror(rc));
         return -1;

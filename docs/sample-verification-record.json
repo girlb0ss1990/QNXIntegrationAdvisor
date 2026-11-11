@@ -1,0 +1,25 @@
+{
+  "id": "vr-fb18608572",
+  "binary_sha256": "c0697d29fe28b3bd9d1c9eaab8b9e5857370920045ab2f4c0330b2c167479f8c",
+  "target_uname": "QNX noname 8.0.0 2026/06/05-16:26:03EDT x86pc x86_64",
+  "sdp_version": "8.0.0",
+  "target_kind": "qemu_x86_64",
+  "exit_status": -1,
+  "metrics": {
+    "resmgr_ready_ms": 5.312,
+    "verify_wall_ms": 1009.465,
+    "compat_selftest_exit": 0.0,
+    "ipc_rtt_min_ns": 9253.0,
+    "ipc_rtt_p50_ns": 34063.0,
+    "ipc_rtt_p99_ns": 137421.0,
+    "ipc_rtt_max_ns": 282319.0,
+    "timer_late_p50_us_idle": 4844.845,
+    "timer_late_p99_us_idle": 5209.59,
+    "timer_late_max_us_idle": 5538.294,
+    "timer_late_p50_us_loaded": 0.0,
+    "timer_late_p99_us_loaded": 149.39,
+    "timer_late_max_us_loaded": 361.098
+  },
+  "timestamp_utc": "2026-11-11T20:52:06Z",
+  "note": "QEMU, indicative only"
+}

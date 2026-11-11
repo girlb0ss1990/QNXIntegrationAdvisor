@@ -69,6 +69,10 @@ def run_verification(report: IntegrationReport, sdp: SdpInstall, target: Target,
         # advisorctl could not run the verification at all (devctl failed); keep the reason.
         notes.append(f"verify failed: {v['error']}")
         emit("verify_error", {"message": notes[-1]})
+    elif v.get("path_appeared"):
+        sig = int(v.get("signal", 0))
+        stop = f"then stopped by signal {sig} (expected)" if sig else f"then exited with status {v.get('exit_status')}"
+        notes.append(f"verify ok: /dev/{svc} appeared, {stop}")
     elif v.get("timed_out"):
         notes.append(f"verify timed out waiting for /dev/{svc}")
     elif v.get("spawn_errno"):
@@ -77,6 +81,8 @@ def run_verification(report: IntegrationReport, sdp: SdpInstall, target: Target,
     if v.get("path_ready_ns", 0) > 0:
         metrics["resmgr_ready_ms"] = round(v["path_ready_ns"] / 1e6, 3)
     metrics["verify_wall_ms"] = round(v.get("wall_ns", 0) / 1e6, 3)
+    metrics["verify_path_appeared"] = float(v.get("path_appeared", 0))
+    metrics["verify_signal"] = float(v.get("signal", 0))
     st = ssh(target, [f"{REMOTE_DIR}/compat_selftest"], timeout=30)
     metrics["compat_selftest_exit"] = float(st.returncode)
     emit("verify", {"message": "compat_selftest", "exit": st.returncode, "output": st.stdout[-500:]})

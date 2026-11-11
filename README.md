@@ -94,8 +94,11 @@ output never reaches a shell.
 > - `make rules-validate`: every API the rules recommend exists in the SDP 8.0.0 sysroot index.
 >
 > The M1 pipeline, web UI, tests and evaluation also run on Windows 11 without an SDP.
-> The full `make demo` verification on a QEMU target has not yet produced a clean record:
-> the benchmarks ran, but the `/dev/advisor` verify step failed on the first attempt.
+> - `make demo` on a QNX 8.0.0 QEMU target (x86_64): the agent spawned the generated
+>   `motor_pid` resource manager, `/dev/motor_pid` appeared after 5.3 ms, and the agent then
+>   stopped it as designed ([`docs/sample-verification-record.json`](docs/sample-verification-record.json)).
+>   In that record `exit_status: -1` means the service ended by signal, not that it failed.
+>   QEMU timings are indicative only.
 
 ## Evidence of QNX use
 
