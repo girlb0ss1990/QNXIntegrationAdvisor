@@ -235,3 +235,31 @@ input, select { font: inherit; color: var(--text); background: var(--panel); bor
 .advanced { margin-top: 10px; }
 .advanced summary { cursor: pointer; color: var(--muted); font-size: 13px; }
 .advanced input { margin-top: 6px; width: 100%; max-width: 420px; font-family: var(--mono); }
+
+/* ----- Why QNX? */
+.why { display: grid; gap: 12px; }
+.fit { display: flex; gap: 16px; align-items: center; background: var(--panel); border: 1px solid var(--border);
+  border-left: 6px solid var(--muted); border-radius: 12px; padding: 14px 16px; flex-wrap: wrap; }
+.fit-strong { border-left-color: var(--ok); } .fit-good { border-left-color: var(--accent); }
+.fit-possible { border-left-color: var(--warn); } .fit-limited { border-left-color: var(--muted); }
+.fit-level { font-weight: 750; font-size: 18px; min-width: 130px; }
+.fit-strong .fit-level { color: var(--ok); } .fit-good .fit-level { color: var(--accent); }
+.fit-possible .fit-level { color: var(--warn); } .fit-limited .fit-level { color: var(--muted); }
+.fit-body { flex: 1; min-width: 240px; }
+.fit-body h3 { margin: 0 0 4px; font-size: 15px; }
+.fit-body p { margin: 0; }
+.benefits { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 12px; }
+.benefit { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 14px; min-width: 0; }
+.benefit header { display: flex; justify-content: space-between; gap: 8px; align-items: flex-start; }
+.benefit h4 { margin: 0; font-size: 15px; }
+.benefit p { margin: 8px 0; }
+.capability { font-size: 12px; color: var(--accent); margin-top: 2px; }
+.strength-high { background: var(--ok); color: #fff; border-color: transparent; }
+.strength-medium { color: var(--accent); border-color: var(--accent); background: transparent; }
+.strength-low { color: var(--muted); }
+.str-low { opacity: .92; }
+.evidence, .related { font-size: 12px; color: var(--muted); display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-top: 6px; }
+.chip { font-size: 11px; border: 1px solid var(--border); background: var(--panel-2); border-radius: 999px; padding: 1px 8px; cursor: pointer; }
+.caveats { background: var(--panel-2); border: 1px solid var(--border); border-radius: 12px; padding: 12px 16px; }
+.caveats h4 { margin: 0 0 6px; }
+.caveats ul { margin: 0; padding-left: 18px; }

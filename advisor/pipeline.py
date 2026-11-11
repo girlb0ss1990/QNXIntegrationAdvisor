@@ -118,6 +118,9 @@ def analyze(source: str, ref: str | None = None, arch: str = "x86_64", use_llm: 
             repo_name = repo.source.rstrip("/").split("/tree/")[0].split("/")[-1].removesuffix(".git")
         else:
             repo_name = repo.root.name
+        if not sr.build.executables:      # no executable target found: name the service after the repository
+            from .scanner import _sanitize
+            sr.service_name = _sanitize(repo_name)
         report = IntegrationReport(
             repo_url=repo.source, commit_sha=repo.commit_sha, mode="M1",
             sdp_version=idx.sdp_version if idx else None, languages=sorted(sr.files.languages),
@@ -135,6 +138,7 @@ def analyze(source: str, ref: str | None = None, arch: str = "x86_64", use_llm: 
         tc_hint = generate_kit(report, ctx)[1].content.strip()            # cmake/qnx8.cmake
         report.pillar3_steps = det.build_pillar3(findings, sr, render_resmgr_excerpt(report, ctx), tc_hint)
         report.summary = det.build_summary(findings, score, sr, idx)
+        report.benefits, report.qnx_fit = det.build_benefits(findings, sr, score, idx is not None)
         emit("synth", {"message": f"{len(report.pillar1_features)} features, {len(report.pillar2_improvements)} "
                                   f"improvements, {len(report.pillar3_steps)} steps (deterministic)"})
 

@@ -1,6 +1,6 @@
 # QNX 8.0 Integration Report: samples/vitals-monitor
 
-Commit `local` · mode M1 · SDP 8.0.0 · generated 2026-11-10T22:17:53Z
+Commit `local` · mode M1 · SDP 8.0.0 · generated 2026-11-11T23:31:24Z
 
 **Readiness score: 19/100** (score = max(0, 100 - sum(weight(severity) x min(hits, 3))); blocker 15, high 6, medium 2, low 1; guarded findings weigh 0)
 
@@ -22,6 +22,79 @@ Commit `local` · mode M1 · SDP 8.0.0 · generated 2026-11-10T22:17:53Z
 | low | LNX-PERIODIC-SLEEP sleep-based periodic loop | available | `src/vitals.c:79` | A relative sleep inside a loop drifts by the loop body's run time. Use clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, ...) with a running deadline, or a pulse timer when the thread also needs to receive other events. |
 | info | LNX-LOG syslog logging | available | `src/vitals.c:39`, `src/vitals.c:40`, `src/vitals.c:100` | syslog() works on QNX. slog2 (slog2_register, slog2f) is recommended for structured, low-overhead logs that you can read with slog2info. |
 | info | LNX-SHM POSIX shared memory | available | `src/vitals.c:109` | shm_open()/mmap() work on QNX. For memory shared with devices or across a hypervisor boundary, look at typed memory (posix_typed_mem_open). Keep the shared struct layout fixed-size and guard it with a process-shared, priority-inheriting mutex. |
+
+## Why QNX?
+
+**Strong fit: vitals_monitor does the kind of real-time, device or service work QNX is built for.**
+
+### Predictable timing for time-critical work (high evidence)
+
+QNX capability: Hard real-time, priority-preemptive scheduling
+
+vitals_monitor has timing-sensitive code (a periodic control loop; sleep-based periodic loop in src/vitals.c:79). On a general-purpose Linux kernel, exactly when that code runs depends on everything else the system is doing. QNX is a hard real-time OS: the highest-priority ready thread always runs, timers can deliver a pulse straight to the waiting thread, mutexes and message passing use priority inheritance, and run-masks can keep a core free for the critical thread, so timing stays predictable when the system is busy.
+
+Evidence: `src/vitals.c:79`
+
+### A driver or service crash does not take the system down (high evidence)
+
+QNX capability: Microkernel architecture with user-space drivers
+
+vitals_monitor works with hardware (opens Linux device files under /dev; Linux i2c-dev in src/vitals.c:25). On Linux, device drivers run inside the kernel, so a driver bug can bring down the whole machine. In QNX the kernel only schedules, passes messages and handles interrupts; drivers and services such as vitals_monitor run as ordinary processes with their own memory protection. If one fails, the kernel and the other processes keep running and the failed process can be restarted.
+
+Evidence: `src/vitals.c:25`
+
+### Automatic detection and restart when a process dies (high evidence)
+
+QNX capability: Process-manager death notifications (and HAM where installed)
+
+vitals_monitor relies on Linux supervision (runs as a background daemon; systemd unit / watchdog script in scripts/vitals-watchdog.sh:1; fork() in a multithreaded program in src/vitals.c:87). On QNX a small guardian can register for PROCMGR_EVENT_DAEMON_DEATH and receive a kernel pulse the moment the daemon exits, then restart it with posix_spawn(); because services are isolated processes, restarting one does not disturb the others.
+
+Evidence: `scripts/vitals-watchdog.sh:1`, `src/vitals.c:87`
+
+### Run without full root rights (high evidence)
+
+QNX capability: Fine-grained process abilities and security policies
+
+vitals_monitor currently needs elevated rights (root-only daemon / Linux capabilities in src/vitals.c:17; POSIX shared memory in src/vitals.c:109). QNX splits root's power into individual abilities (for example: create a /dev entry, raise thread priority, map physical memory). With procmgr_ability() the service keeps only the abilities it needs, locks them, and then runs as a normal user; secpol policies can enforce the same rules system-wide. A compromised service can then do far less damage.
+
+Evidence: `src/vitals.c:17`, `src/vitals.c:109`
+
+### Fast, priority-aware communication between processes (high evidence)
+
+QNX capability: Synchronous message passing as the core of the OS
+
+vitals_monitor coordinates work through Linux event and IPC mechanisms (serves other processes (Unix sockets, message queues or shared memory); eventfd notifier in src/vitals.c:14; POSIX shared memory in src/vitals.c:109). In QNX, message passing is how the whole OS works: a client's MsgSend() copies data directly into the server, blocks until the reply, and the server temporarily runs at the client's priority. Clients can also simply open() and read() a /dev/vitals_monitor path. This gives one consistent, priority-aware way to talk between components.
+
+Evidence: `src/vitals.c:14`, `src/vitals.c:109`
+
+### A path to functional-safety certification (high evidence)
+
+QNX capability: Safety-certified QNX OS variant available
+
+vitals_monitor looks like embedded control or device software (a periodic control loop; opens Linux device files under /dev; Linux i2c-dev in src/vitals.c:25). If it ever has to meet a functional safety standard (automotive, industrial or medical), QNX offers a safety-certified variant of the OS, which removes a large part of the work compared with arguing the safety of a general-purpose kernel. Your own application still needs its own safety process.
+
+Evidence: `src/vitals.c:25`
+
+### See exactly what the system did, and when (low evidence)
+
+QNX capability: Kernel event tracing and structured system logging
+
+vitals_monitor relies on Linux logging or /proc inspection (syslog logging in src/vitals.c:39; sleep-based periodic loop in src/vitals.c:79). QNX's tracelogger records kernel events (thread switches, messages, interrupts) with timestamps, which shows exactly why a deadline was missed; slog2 gives fast, structured logs that stay readable after a crash.
+
+Evidence: `src/vitals.c:39`, `src/vitals.c:79`
+
+### Most of the code carries over (low evidence)
+
+QNX capability: POSIX-compliant OS
+
+QNX implements the POSIX APIs this code already relies on (threads, timers, sockets, files), so the port is about the Linux-only parts listed in the audit rather than a rewrite. The audit found 12 Linux-specific pattern(s) across 4 file(s); the readiness score is 19/100.
+
+Things to keep in mind:
+
+- Porting effort: 4 blocker/high finding(s) need code changes first (see the Audit tab and the step-by-step guide).
+- Hardware access depends on your board's QNX drivers: CAN, I2C and SPI interfaces differ from Linux.
+- These are capabilities QNX provides, not measurements. Use the Verify tab on a QNX target before relying on timing.
+
 
 ## Pillar 1: Relevant QNX features
 
@@ -154,7 +227,7 @@ Verify: `cmake -B build-qnx -DCMAKE_TOOLCHAIN_FILE=cmake/qnx8-toolchain.cmake -D
 
 ### 2. Put I2C access behind a sensor HAL
 
-*api_migration · effort M · qcc snippet check: failed*
+*api_migration · effort M · qcc snippet check: skipped*
 
 Create sensor_hal_read(); move the i2c-dev code to sensor_hal_linux.c and add sensor_hal_qnx.c.
 
@@ -180,7 +253,7 @@ Verify: `qcc -Vgcc_ntox86_64 -fsyntax-only src/sensor_hal_qnx.c`
 
 ### 3. Turn eventfd wake-ups into pulses
 
-*api_migration · effort S · qcc snippet check: failed*
+*api_migration · effort S · qcc snippet check: skipped*
 
 Create the notifier with the qnx_compat.h shim from the porting kit. On QNX it sends a pulse to the loop's channel; elsewhere it falls back to a pipe.
 
@@ -225,7 +298,7 @@ Verify: `grep -rn '"/sys/' src/  # should be empty outside hal_linux.c`
 
 ### 5. Replace fork()/exec with posix_spawn()
 
-*api_migration · effort S · qcc snippet check: failed*
+*api_migration · effort S · qcc snippet check: skipped*
 
 Use posix_spawn(); for daemonizing, let the startup script background the process instead.
 
@@ -254,7 +327,7 @@ Verify: `qcc -Vgcc_ntox86_64 -fsyntax-only src/main.c`
 
 ### 6. Wrap device control in a HAL
 
-*api_migration · effort M · qcc snippet check: failed*
+*api_migration · effort M · qcc snippet check: skipped*
 
 Move ioctl() calls behind functions such as hal_set_line(); implement the QNX side with devctl().
 
@@ -288,7 +361,7 @@ Verify: `qcc -Vgcc_ntox86_64 -fsyntax-only src/hal_qnx.c`
 
 ### 7. Expose the service as a /dev/vitals_monitor resource manager
 
-*resmgr_conversion · effort L · qcc snippet check: failed*
+*resmgr_conversion · effort L · qcc snippet check: skipped*
 
 Start from the kit's resource-manager skeleton. Clients open /dev/vitals_monitor and use read(), write() and devctl() instead of a private socket or shared memory. The periodic work moves into the timer pulse handler, which runs serialized with client requests in one thread.
 
@@ -335,7 +408,7 @@ Verify: `ls -l /dev/vitals_monitor && vitals_monitorctl  # on the target`
 
 ### 8. Use absolute-deadline sleeps for periodic work
 
-*scheduling_timing · effort S · qcc snippet check: failed*
+*scheduling_timing · effort S · qcc snippet check: skipped*
 
 Replace relative sleeps in periodic loops with clock_nanosleep(TIMER_ABSTIME).
 
@@ -366,7 +439,7 @@ Verify: `qcc -Vgcc_ntox86_64 -fsyntax-only src/main.c`
 
 ### 9. Drop privileges with procmgr_ability()
 
-*reliability_security · effort M · qcc snippet check: failed*
+*reliability_security · effort M · qcc snippet check: skipped*
 
 After privileged setup, allow the specific abilities the service still needs for the non-root domain, deny and lock everything else, then setuid() to a service user.
 
@@ -401,7 +474,7 @@ Verify: `pidin -p <service> arg  # on target: confirm non-root uid`
 
 ### 10. Replace systemd supervision with startup script + procmgr death notifications
 
-*reliability_security · effort M · qcc snippet check: failed*
+*reliability_security · effort M · qcc snippet check: skipped*
 
 Daemonize with procmgr_daemon() and register PROCMGR_EVENT_DAEMON_DEATH pulse notifications (or attach to HAM if installed).
 
@@ -432,7 +505,7 @@ Verify: `pidin -F '%a %b %N'  # on target, confirm supervised daemon running`
 
 ### 11. Optionally switch to slog2
 
-*reliability_security · effort S · qcc snippet check: failed*
+*reliability_security · effort S · qcc snippet check: skipped*
 
 Register a slog2 buffer set at start-up and route log calls through slog2f().
 

@@ -53,8 +53,15 @@ class LLMImprovement(BaseModel):
     line: int
 
 
+class LLMBenefitNote(BaseModel):
+    id: str
+    why: str
+
+
 class LLMEnrichment(BaseModel):
     summary: str
+    fit_headline: Optional[str] = None
+    benefits: list[LLMBenefitNote] = Field(default_factory=list)
     features: list[LLMFeatureNote] = Field(default_factory=list)
     steps: list[LLMStepNote] = Field(default_factory=list)
     extra_improvements: list[LLMImprovement] = Field(default_factory=list, max_length=5)
@@ -247,7 +254,7 @@ def _excerpts(sr: ScanResult, report: IntegrationReport) -> list[dict]:
 
 
 def build_user_prompt(sr: ScanResult, report: IntegrationReport, idx: SysrootIndex | None, allowed: set[str]) -> str:
-    det = report.model_dump(include={"summary", "roles", "service_name", "findings", "pillar1_features",
+    det = report.model_dump(include={"summary", "roles", "service_name", "findings", "benefits", "qnx_fit", "pillar1_features",
                                      "pillar2_improvements", "pillar3_steps"})
     for f in det["findings"]:
         for loc in f["locations"]:
@@ -321,6 +328,17 @@ def apply_enrichment(report: IntegrationReport, e: LLMEnrichment, guard: Guard, 
                 f.diagram_mermaid = note.diagram_mermaid.strip()
             else:
                 guard._flag("diagram")
+    if e.fit_headline and r.qnx_fit:
+        h = guard.filter_text(e.fit_headline)
+        if h and h.split(":")[0].strip().lower() == r.qnx_fit.headline.split(":")[0].strip().lower():
+            r.qnx_fit.headline = h            # wording only: the fit level stays deterministic
+    bens = {b.id: b for b in r.benefits}
+    for note in e.benefits:
+        b = bens.get(note.id)
+        if b:
+            txt = guard.filter_text(note.why)
+            if txt:
+                b.why = txt
     steps = {s.n: s for s in r.pillar3_steps}
     for note in e.steps:
         st = steps.get(note.n)

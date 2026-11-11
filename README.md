@@ -148,6 +148,17 @@ output never reaches a shell.
 | QEMU target via `mkqnximage` | [`qnx-target/vm/`](qnx-target/vm/) |
 | Measured output from a QNX 8.0 target | `docs/sample-verification-record.json` (produced by `make demo`) |
 
+## Why QNX? analysis
+
+Every report opens with a **Why QNX?** tab: an overall fit (Strong / Good / Possible / Limited) and the
+benefits this repository would gain on QNX, such as predictable real-time timing, drivers that cannot crash the
+kernel, automatic restart of failed processes, running without root, priority-aware message passing and a
+path to safety certification. Each benefit comes from a reviewed catalogue
+([`advisor/rules/benefits.yaml`](advisor/rules/benefits.yaml)) and is shown only when the scan finds evidence
+in the code, with links to the exact lines. The tab also lists caveats (porting effort, board drivers,
+"capabilities, not measurements"). With AI enabled, the explanations are rewritten for the specific
+repository and filtered by the same hallucination guard; the fit level itself stays deterministic.
+
 ## How it works
 
 ```mermaid

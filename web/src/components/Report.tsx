@@ -196,3 +196,66 @@ export function KitTab({ r, kitUrl }: { r: IntegrationReport; kitUrl: string | n
     </div>
   );
 }
+
+const FIT_LABEL = { strong: "Strong fit", good: "Good fit", possible: "Possible fit", limited: "Limited benefit" } as const;
+const STRENGTH_LABEL = { high: "Strong evidence", medium: "Some evidence", low: "General benefit" } as const;
+
+export function WhyTab({ r, onOpenPillars }: { r: IntegrationReport; onOpenPillars: () => void }) {
+  const benefits = r.benefits ?? [];
+  const fit = r.qnx_fit;
+  if (!fit || benefits.length === 0) {
+    return <p className="muted">This report was created before the &ldquo;Why QNX?&rdquo; analysis existed. Analyze the
+      repository again to see it.</p>;
+  }
+  return (
+    <div className="why">
+      <section className={`fit fit-${fit.level}`}>
+        <div className="fit-level">{FIT_LABEL[fit.level]}</div>
+        <div className="fit-body">
+          <h3><Inline text={fit.headline} /></h3>
+          {fit.reasons.length > 0 && (
+            <p className="muted">Main reasons: {fit.reasons.join(" · ")}</p>
+          )}
+        </div>
+      </section>
+
+      <p className="muted small">
+        <strong>Fit</strong> is how much this project would gain from QNX. The <strong>readiness score</strong> above
+        is different: it shows how much porting work is needed first. A project can be a strong fit and still need
+        work. Each benefit below appears only because the scan found evidence for it in this repository (linked under
+        each card); strength reflects how direct that evidence is, not a measurement.
+      </p>
+
+      <div className="benefits">
+        {benefits.map((b) => (
+          <article key={b.id} className={`benefit str-${b.strength}`}>
+            <header>
+              <h4>{b.title}</h4>
+              <span className={`badge strength-${b.strength}`}>{STRENGTH_LABEL[b.strength]}</span>
+            </header>
+            <div className="capability">QNX capability: {b.capability}</div>
+            <p><Inline text={b.why} /></p>
+            {b.evidence_locations.length > 0 && (
+              <div className="evidence">Evidence: {b.evidence_locations.map((l, i) => <Loc key={i} l={l} />)}</div>
+            )}
+            {b.related_features.length > 0 && (
+              <div className="related">Related QNX features:{" "}
+                {b.related_features.map((f) => (
+                  <button key={f} className="chip" onClick={onOpenPillars} title="See this feature in the 3-pillar report">
+                    {f.replace(/_/g, " ")}</button>
+                ))}
+              </div>
+            )}
+          </article>
+        ))}
+      </div>
+
+      {fit.caveats.length > 0 && (
+        <section className="caveats">
+          <h4>Things to keep in mind</h4>
+          <ul>{fit.caveats.map((c, i) => <li key={i}><Inline text={c} /></li>)}</ul>
+        </section>
+      )}
+    </div>
+  );
+}

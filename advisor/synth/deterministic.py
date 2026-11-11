@@ -248,3 +248,101 @@ def build_summary(findings: list[Finding], score: int, sr: ScanResult, idx: Sysr
         parts.append(f"Recommended shape on QNX: a /dev/{sr.service_name} resource manager driven by a pulse timer.")
     parts.append(f"Readiness score {score}/100 (deterministic formula).")
     return " ".join(parts)
+
+
+# ---------------------------------------------------------------- "Why QNX?"
+ROLE_PHRASE = {
+    "periodic_control_loop": "a periodic control loop",
+    "device_service": "opens Linux device files under /dev",
+    "daemon": "runs as a background daemon",
+    "ipc_server": "serves other processes (Unix sockets, message queues or shared memory)",
+}
+_RANK = {"high": 3, "medium": 2, "low": 1}
+# What QNX is distinctively built for; a "good"/"strong" fit needs at least one of these with strong evidence.
+CORE_BENEFITS = {"realtime_determinism", "fault_isolation", "message_passing", "safety_certification"}
+
+
+def _lower_first(t: str) -> str:
+    # "Sleep-based loop" -> "sleep-based loop"; keep names and acronyms ("Linux", "BSD", "SocketCAN") as they are
+    first = t.split(" ", 1)[0]
+    if len(first) > 1 and first[1:].islower() and first not in ("Linux", "POSIX"):
+        return t[:1].lower() + t[1:]
+    return t
+
+
+def _loc(f: Finding) -> str:
+    if not f.locations:
+        return ""
+    loc = f.locations[0]
+    return f" in {loc.file_path}:{loc.line_start}"
+
+
+def build_benefits(findings: list[Finding], sr: ScanResult, score: int, sysroot_verified: bool):
+    """Benefits of running this repository on QNX, each backed by evidence from the scan."""
+    from ..models import Benefit, QnxFit
+    from ..rules import load_benefits
+    svc = sr.service_name
+    roles = set(sr.roles)
+    active = [f for f in findings if not f.already_guarded]
+    by_rule = {f.rule_id: f for f in active}
+    out: list[Benefit] = []
+    for bid, b in load_benefits().items():
+        trig = b.get("triggers", {})
+        hit_roles = [r for r in trig.get("roles", []) if r in roles]
+        hit_rules = [by_rule[r] for r in trig.get("rules", []) if r in by_rule]
+        any_finding = trig.get("any_finding") and active
+        if not (hit_roles or hit_rules or any_finding):
+            continue
+        strength = b.get("base_strength", "medium")
+        if not hit_roles and hit_rules and "rules_only_strength" in b:
+            strength = b["rules_only_strength"]
+        if set(hit_roles) & set(b.get("strong_roles", [])) or {f.rule_id for f in hit_rules} & set(b.get("strong_rules", [])):
+            strength = "high"
+        bits = [ROLE_PHRASE[r] for r in hit_roles] + [f"{_lower_first(f.title)}{_loc(f)}" for f in hit_rules]
+        if any_finding and not bits:
+            files = {loc.file_path for f in active for loc in f.locations}
+            evidence = (f"The audit found {len(active)} Linux-specific pattern(s) across {len(files)} file(s); "
+                        f"the readiness score is {score}/100.")
+        else:
+            evidence = "; ".join(bits[:3]) + (f"; and {len(bits) - 3} more" if len(bits) > 3 else "")
+        why = " ".join(b["why"].split()).replace("{service}", svc).replace("{evidence}", evidence)
+        locs = [f.locations[0] for f in hit_rules if f.locations][:4]
+        out.append(Benefit(id=bid, title=b["title"], capability=b["capability"], why=why,
+                           evidence_summary=evidence, evidence_locations=locs, strength=strength,
+                           related_features=b.get("features", [])))
+    out.sort(key=lambda x: -_RANK[x.strength])
+
+    highs = [b for b in out if b.strength == "high"]
+    mediums = [b for b in out if b.strength == "medium"]
+    core_highs = [b for b in highs if b.id in CORE_BENEFITS]
+    if len(core_highs) >= 2:
+        level, headline = "strong", (f"Strong fit: {svc} does the kind of real-time, device or service work "
+                                     "QNX is built for.")
+    elif core_highs or len(highs) >= 2:
+        top = (core_highs or highs)[0]
+        level, headline = "good", f"Good fit: {svc} would mainly gain {top.title[0].lower() + top.title[1:]}."
+    elif highs or len(mediums) >= 2:
+        top = (highs or mediums)[0]
+        level, headline = "possible", (f"Possible fit: QNX would mainly add reliability and security benefits, "
+                                       f"such as {top.title[0].lower() + top.title[1:]}.")
+    else:
+        level, headline = "limited", ("Limited benefit: little real-time, device or inter-process work was found, "
+                                      "so QNX would mostly run this code as it is.")
+    reasons = [b.title for b in highs + mediums][:5]
+
+    caveats: list[str] = []
+    serious = [f for f in active if f.severity in ("blocker", "high")]
+    if serious:
+        caveats.append(f"Porting effort: {len(serious)} blocker/high finding(s) need code changes first "
+                       "(see the Audit tab and the step-by-step guide).")
+    if roles.isdisjoint({"periodic_control_loop", "device_service"}):
+        caveats.append("No hard real-time loop or device I/O was detected, so QNX's timing strengths matter less "
+                       "for this code.")
+    if by_rule.keys() & {"LNX-SOCKETCAN", "LNX-I2C", "LNX-SPI"}:
+        caveats.append("Hardware access depends on your board's QNX drivers: CAN, I2C and SPI interfaces differ "
+                       "from Linux.")
+    if not sysroot_verified:
+        caveats.append("API availability has not been checked against your QNX SDP yet (see Setup).")
+    caveats.append("These are capabilities QNX provides, not measurements. Use the Verify tab on a QNX target "
+                   "before relying on timing.")
+    return out, QnxFit(level=level, headline=headline, reasons=reasons, caveats=caveats)

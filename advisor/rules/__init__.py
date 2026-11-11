@@ -48,8 +48,17 @@ def load_features() -> dict:
     return yaml.safe_load(FEATURES_PATH.read_text(encoding="utf-8"))
 
 
+BENEFITS_PATH = Path(__file__).with_name("benefits.yaml")
+
+
+@lru_cache(maxsize=1)
+def load_benefits() -> dict:
+    """'Why QNX?' catalogue: benefits shown only when the repository has evidence for them."""
+    return yaml.safe_load(BENEFITS_PATH.read_text(encoding="utf-8"))
+
+
 def ruleset_hash() -> str:
-    h = hashlib.sha256(RULES_PATH.read_bytes() + FEATURES_PATH.read_bytes())
+    h = hashlib.sha256(RULES_PATH.read_bytes() + FEATURES_PATH.read_bytes() + BENEFITS_PATH.read_bytes())
     return h.hexdigest()[:16]
 
 

@@ -11,6 +11,7 @@
   "CMake"
  ],
  "readiness_score": 19,
+ "applicable": true,
  "summary": "12 finding(s) across 4 file(s): 1 blocker, 3 high, 5 medium, 1 low, 2 info. 3 rule(s) depend on APIs missing from your QNX SDP 8.0.0 sysroot. Detected roles: device service, periodic control loop, daemon, ipc server. Recommended shape on QNX: a /dev/vitals_monitor resource manager driven by a pulse timer. Readiness score 19/100 (deterministic formula).",
  "findings": [
   {
@@ -447,6 +448,196 @@
    "sysroot_detail": ""
   }
  ],
+ "benefits": [
+  {
+   "id": "realtime_determinism",
+   "title": "Predictable timing for time-critical work",
+   "capability": "Hard real-time, priority-preemptive scheduling",
+   "why": "vitals_monitor has timing-sensitive code (a periodic control loop; sleep-based periodic loop in src/vitals.c:79). On a general-purpose Linux kernel, exactly when that code runs depends on everything else the system is doing. QNX is a hard real-time OS: the highest-priority ready thread always runs, timers can deliver a pulse straight to the waiting thread, mutexes and message passing use priority inheritance, and run-masks can keep a core free for the critical thread, so timing stays predictable when the system is busy.",
+   "evidence_summary": "a periodic control loop; sleep-based periodic loop in src/vitals.c:79",
+   "evidence_locations": [
+    {
+     "file_path": "src/vitals.c",
+     "line_start": 79,
+     "line_end": 79,
+     "snippet": "nanosleep(&period, NULL);"
+    }
+   ],
+   "strength": "high",
+   "related_features": [
+    "channels_pulses",
+    "priority_inheritance",
+    "sporadic_scheduling",
+    "runmask_affinity"
+   ]
+  },
+  {
+   "id": "fault_isolation",
+   "title": "A driver or service crash does not take the system down",
+   "capability": "Microkernel architecture with user-space drivers",
+   "why": "vitals_monitor works with hardware (opens Linux device files under /dev; Linux i2c-dev in src/vitals.c:25). On Linux, device drivers run inside the kernel, so a driver bug can bring down the whole machine. In QNX the kernel only schedules, passes messages and handles interrupts; drivers and services such as vitals_monitor run as ordinary processes with their own memory protection. If one fails, the kernel and the other processes keep running and the failed process can be restarted.",
+   "evidence_summary": "opens Linux device files under /dev; Linux i2c-dev in src/vitals.c:25",
+   "evidence_locations": [
+    {
+     "file_path": "src/vitals.c",
+     "line_start": 25,
+     "line_end": 25,
+     "snippet": "#include <linux/i2c-dev.h>"
+    }
+   ],
+   "strength": "high",
+   "related_features": [
+    "resource_manager",
+    "channels_pulses"
+   ]
+  },
+  {
+   "id": "supervised_recovery",
+   "title": "Automatic detection and restart when a process dies",
+   "capability": "Process-manager death notifications (and HAM where installed)",
+   "why": "vitals_monitor relies on Linux supervision (runs as a background daemon; systemd unit / watchdog script in scripts/vitals-watchdog.sh:1; fork() in a multithreaded program in src/vitals.c:87). On QNX a small guardian can register for PROCMGR_EVENT_DAEMON_DEATH and receive a kernel pulse the moment the daemon exits, then restart it with posix_spawn(); because services are isolated processes, restarting one does not disturb the others.",
+   "evidence_summary": "runs as a background daemon; systemd unit / watchdog script in scripts/vitals-watchdog.sh:1; fork() in a multithreaded program in src/vitals.c:87",
+   "evidence_locations": [
+    {
+     "file_path": "scripts/vitals-watchdog.sh",
+     "line_start": 1,
+     "line_end": 1,
+     "snippet": "#!/bin/sh\n# Restart vitals_monitor if it dies. Run from cron every minute.\nif ! pgrep -x vitals_monitor >/dev/null; then\n    logger -t vitals-watchdog \"vitals_monitor not running, restarting\"\n    /usr/local/bin/vitals_monitor &\nfi"
+    },
+    {
+     "file_path": "src/vitals.c",
+     "line_start": 87,
+     "line_end": 87,
+     "snippet": "pid_t pid = fork();"
+    }
+   ],
+   "strength": "high",
+   "related_features": [
+    "ham"
+   ]
+  },
+  {
+   "id": "least_privilege",
+   "title": "Run without full root rights",
+   "capability": "Fine-grained process abilities and security policies",
+   "why": "vitals_monitor currently needs elevated rights (root-only daemon / Linux capabilities in src/vitals.c:17; POSIX shared memory in src/vitals.c:109). QNX splits root's power into individual abilities (for example: create a /dev entry, raise thread priority, map physical memory). With procmgr_ability() the service keeps only the abilities it needs, locks them, and then runs as a normal user; secpol policies can enforce the same rules system-wide. A compromised service can then do far less damage.",
+   "evidence_summary": "root-only daemon / Linux capabilities in src/vitals.c:17; POSIX shared memory in src/vitals.c:109",
+   "evidence_locations": [
+    {
+     "file_path": "src/vitals.c",
+     "line_start": 17,
+     "line_end": 17,
+     "snippet": "#include <sys/prctl.h>"
+    },
+    {
+     "file_path": "src/vitals.c",
+     "line_start": 109,
+     "line_end": 109,
+     "snippet": "int shm_fd = shm_open(\"/vitals\", O_CREAT | O_RDWR, 0644);"
+    }
+   ],
+   "strength": "high",
+   "related_features": [
+    "procmgr_ability",
+    "secpol"
+   ]
+  },
+  {
+   "id": "message_passing",
+   "title": "Fast, priority-aware communication between processes",
+   "capability": "Synchronous message passing as the core of the OS",
+   "why": "vitals_monitor coordinates work through Linux event and IPC mechanisms (serves other processes (Unix sockets, message queues or shared memory); eventfd notifier in src/vitals.c:14; POSIX shared memory in src/vitals.c:109). In QNX, message passing is how the whole OS works: a client's MsgSend() copies data directly into the server, blocks until the reply, and the server temporarily runs at the client's priority. Clients can also simply open() and read() a /dev/vitals_monitor path. This gives one consistent, priority-aware way to talk between components.",
+   "evidence_summary": "serves other processes (Unix sockets, message queues or shared memory); eventfd notifier in src/vitals.c:14; POSIX shared memory in src/vitals.c:109",
+   "evidence_locations": [
+    {
+     "file_path": "src/vitals.c",
+     "line_start": 14,
+     "line_end": 14,
+     "snippet": "#include <sys/eventfd.h>"
+    },
+    {
+     "file_path": "src/vitals.c",
+     "line_start": 109,
+     "line_end": 109,
+     "snippet": "int shm_fd = shm_open(\"/vitals\", O_CREAT | O_RDWR, 0644);"
+    }
+   ],
+   "strength": "high",
+   "related_features": [
+    "resource_manager",
+    "channels_pulses",
+    "typed_shared_memory"
+   ]
+  },
+  {
+   "id": "safety_certification",
+   "title": "A path to functional-safety certification",
+   "capability": "Safety-certified QNX OS variant available",
+   "why": "vitals_monitor looks like embedded control or device software (a periodic control loop; opens Linux device files under /dev; Linux i2c-dev in src/vitals.c:25). If it ever has to meet a functional safety standard (automotive, industrial or medical), QNX offers a safety-certified variant of the OS, which removes a large part of the work compared with arguing the safety of a general-purpose kernel. Your own application still needs its own safety process.",
+   "evidence_summary": "a periodic control loop; opens Linux device files under /dev; Linux i2c-dev in src/vitals.c:25",
+   "evidence_locations": [
+    {
+     "file_path": "src/vitals.c",
+     "line_start": 25,
+     "line_end": 25,
+     "snippet": "#include <linux/i2c-dev.h>"
+    }
+   ],
+   "strength": "high",
+   "related_features": []
+  },
+  {
+   "id": "observability",
+   "title": "See exactly what the system did, and when",
+   "capability": "Kernel event tracing and structured system logging",
+   "why": "vitals_monitor relies on Linux logging or /proc inspection (syslog logging in src/vitals.c:39; sleep-based periodic loop in src/vitals.c:79). QNX's tracelogger records kernel events (thread switches, messages, interrupts) with timestamps, which shows exactly why a deadline was missed; slog2 gives fast, structured logs that stay readable after a crash.",
+   "evidence_summary": "syslog logging in src/vitals.c:39; sleep-based periodic loop in src/vitals.c:79",
+   "evidence_locations": [
+    {
+     "file_path": "src/vitals.c",
+     "line_start": 39,
+     "line_end": 39,
+     "snippet": "if (fd < 0) { syslog(LOG_ERR, \"open %s: %m\", I2C_BUS); return -1; }"
+    },
+    {
+     "file_path": "src/vitals.c",
+     "line_start": 79,
+     "line_end": 79,
+     "snippet": "nanosleep(&period, NULL);"
+    }
+   ],
+   "strength": "low",
+   "related_features": [
+    "tracelogger"
+   ]
+  },
+  {
+   "id": "posix_portability",
+   "title": "Most of the code carries over",
+   "capability": "POSIX-compliant OS",
+   "why": "QNX implements the POSIX APIs this code already relies on (threads, timers, sockets, files), so the port is about the Linux-only parts listed in the audit rather than a rewrite. The audit found 12 Linux-specific pattern(s) across 4 file(s); the readiness score is 19/100.",
+   "evidence_summary": "The audit found 12 Linux-specific pattern(s) across 4 file(s); the readiness score is 19/100.",
+   "evidence_locations": [],
+   "strength": "low",
+   "related_features": []
+  }
+ ],
+ "qnx_fit": {
+  "level": "strong",
+  "headline": "Strong fit: vitals_monitor does the kind of real-time, device or service work QNX is built for.",
+  "reasons": [
+   "Predictable timing for time-critical work",
+   "A driver or service crash does not take the system down",
+   "Automatic detection and restart when a process dies",
+   "Run without full root rights",
+   "Fast, priority-aware communication between processes"
+  ],
+  "caveats": [
+   "Porting effort: 4 blocker/high finding(s) need code changes first (see the Audit tab and the step-by-step guide).",
+   "Hardware access depends on your board's QNX drivers: CAN, I2C and SPI interfaces differ from Linux.",
+   "These are capabilities QNX provides, not measurements. Use the Verify tab on a QNX target before relying on timing."
+  ]
+ },
  "pillar1_features": [
   {
    "feature": "resource_manager",
@@ -803,7 +994,7 @@
    "explanation": "Create sensor_hal_read(); move the i2c-dev code to sensor_hal_linux.c and add sensor_hal_qnx.c.",
    "before_code": "/* src/vitals.c */\n    if (fd < 0) { syslog(LOG_ERR, \"open %s: %m\", I2C_BUS); return -1; }\n    if (ioctl(fd, I2C_SLAVE, SENSOR_ADDR) < 0) { syslog(LOG_ERR, \"I2C_SLAVE: %m\"); return -1; }\n    return fd;\n}",
    "after_code": "/* sensor_hal.h */\nint sensor_hal_open(int bus, uint8_t addr);\nint sensor_hal_read_regs(int h, uint8_t reg, uint8_t *buf, size_t len);",
-   "qcc_syntax_check": "failed",
+   "qcc_syntax_check": "skipped",
    "verify_command": "qcc -Vgcc_ntox86_64 -fsyntax-only src/sensor_hal_qnx.c",
    "est_effort": "M"
   },
@@ -817,7 +1008,7 @@
    "explanation": "Create the notifier with the qnx_compat.h shim from the porting kit. On QNX it sends a pulse to the loop's channel; elsewhere it falls back to a pipe.",
    "before_code": "/* src/vitals.c */\nnotify_efd = eventfd(0, 0);\n\nint fd = sensor_open();",
    "after_code": "#include \"qnx_compat.h\"\n\nqnx_notifier_t n;\nqnx_notifier_init(&n, chid, PULSE_CODE_FLUSH);\nqnx_notifier_signal(&n, 1);        /* MsgSendPulse under the hood */",
-   "qcc_syntax_check": "failed",
+   "qcc_syntax_check": "skipped",
    "verify_command": "qcc -Vgcc_ntox86_64 -fsyntax-only -Iinclude src/main.c",
    "est_effort": "S"
   },
@@ -845,7 +1036,7 @@
    "explanation": "Use posix_spawn(); for daemonizing, let the startup script background the process instead.",
    "before_code": "/* src/vitals.c */\n{\n    pid_t pid = fork();\n    if (pid == 0) {\n        char arg[16];",
    "after_code": "#include <spawn.h>\n\nextern char **environ;\npid_t pid;\nchar *const argv[] = { (char *)path, arg, NULL };\nint rc = posix_spawn(&pid, path, NULL, NULL, argv, environ);",
-   "qcc_syntax_check": "failed",
+   "qcc_syntax_check": "skipped",
    "verify_command": "qcc -Vgcc_ntox86_64 -fsyntax-only src/main.c",
    "est_effort": "S"
   },
@@ -859,7 +1050,7 @@
    "explanation": "Move ioctl() calls behind functions such as hal_set_line(); implement the QNX side with devctl().",
    "before_code": "/* src/vitals.c */\n    if (fd < 0) { syslog(LOG_ERR, \"open %s: %m\", I2C_BUS); return -1; }\n    if (ioctl(fd, I2C_SLAVE, SENSOR_ADDR) < 0) { syslog(LOG_ERR, \"I2C_SLAVE: %m\"); return -1; }\n    return fd;\n}",
    "after_code": "/* hal.h */\nint hal_serial_set_dtr(int fd, int on);\n\n/* hal_qnx.c */\n#include <devctl.h>\n#include <sys/dcmd_chr.h>\nint hal_serial_set_dtr(int fd, int on)\n{\n    int bits = on ? (_SERCTL_DTR | _SERCTL_DTR_CHG) : _SERCTL_DTR_CHG;\n    return devctl(fd, DCMD_CHR_SERCTL, &bits, sizeof bits, NULL);\n}",
-   "qcc_syntax_check": "failed",
+   "qcc_syntax_check": "skipped",
    "verify_command": "qcc -Vgcc_ntox86_64 -fsyntax-only src/hal_qnx.c",
    "est_effort": "M"
   },
@@ -874,7 +1065,7 @@
    "explanation": "Start from the kit's resource-manager skeleton. Clients open /dev/vitals_monitor and use read(), write() and devctl() instead of a private socket or shared memory. The periodic work moves into the timer pulse handler, which runs serialized with client requests in one thread.",
    "before_code": null,
    "after_code": "static int io_devctl(resmgr_context_t *ctp, io_devctl_t *msg, RESMGR_OCB_T *ocb)\n{\n    int status = iofunc_devctl_default(ctp, msg, ocb);\n    if (status != _RESMGR_DEFAULT)\n        return status;\n\n    void  *data = _DEVCTL_DATA(msg->i);\n    size_t nbytes = 0;\n\n    switch (msg->i.dcmd) {\n    case DCMD_VITALS_MONITOR_GET_STATUS:\n        if (msg->i.nbytes < sizeof(state.status))\n            return EINVAL;\n        memcpy(data, &state.status, sizeof(state.status));\n        nbytes = sizeof(state.status);\n        break;\n    case DCMD_VITALS_MONITOR_SET_VALUE: {\n        int32_t v;\n        if (msg->i.nbytes < sizeof v)\n            return EINVAL;\n        if (resmgr_msgread(ctp, &v, sizeof v, sizeof msg->i) != (ssize_t)sizeof v)\n            return EFAULT;\n        state.status.value = v;\n        break;\n    }\n    default:\n        return ENOSYS;\n    }\n\n    memset(&msg->o, 0, sizeof msg->o);\n    msg->o.ret_val = EOK;\n    msg->o.nbytes = (uint32_t)nbytes;\n    return _RESMGR_PTR(ctp, &msg->o, sizeof msg->o + nbytes);\n}",
-   "qcc_syntax_check": "failed",
+   "qcc_syntax_check": "skipped",
    "verify_command": "ls -l /dev/vitals_monitor && vitals_monitorctl  # on the target",
    "est_effort": "L"
   },
@@ -888,7 +1079,7 @@
    "explanation": "Replace relative sleeps in periodic loops with clock_nanosleep(TIMER_ABSTIME).",
    "before_code": "/* src/vitals.c */\n    }\n    nanosleep(&period, NULL);\n}\nreturn NULL;",
    "after_code": "struct timespec next;\nclock_gettime(CLOCK_MONOTONIC, &next);\nfor (;;) {\n    do_work();\n    next.tv_nsec += PERIOD_NS;\n    while (next.tv_nsec >= 1000000000L) { next.tv_nsec -= 1000000000L; next.tv_sec++; }\n    clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &next, NULL);\n}",
-   "qcc_syntax_check": "failed",
+   "qcc_syntax_check": "skipped",
    "verify_command": "qcc -Vgcc_ntox86_64 -fsyntax-only src/main.c",
    "est_effort": "S"
   },
@@ -903,7 +1094,7 @@
    "explanation": "After privileged setup, allow the specific abilities the service still needs for the non-root domain, deny and lock everything else, then setuid() to a service user.",
    "before_code": "/* src/vitals.c */\nif (geteuid() != 0) {\n    fprintf(stderr, \"vitals-monitor must run as root\\n\");\n    return 1;\n}\nprctl(PR_SET_NAME, \"vitals-main\", 0, 0, 0);\nprctl(PR_SET_KEEPCAPS, 1, 0, 0, 0);",
    "after_code": "#include <sys/procmgr.h>\n\n/* after resmgr_attach()/open() of privileged resources: */\nif (procmgr_ability(0,\n        PROCMGR_ADN_NONROOT | PROCMGR_AOP_ALLOW | PROCMGR_AOP_LOCK | PROCMGR_AID_PRIORITY,\n        PROCMGR_ADN_NONROOT | PROCMGR_AOP_DENY  | PROCMGR_AOP_LOCK | PROCMGR_AID_EOL) != EOK) {\n    return 1;\n}\nif (setgid(SERVICE_GID) == -1 || setuid(SERVICE_UID) == -1)\n    return 1;",
-   "qcc_syntax_check": "failed",
+   "qcc_syntax_check": "skipped",
    "verify_command": "pidin -p <service> arg  # on target: confirm non-root uid",
    "est_effort": "M"
   },
@@ -918,7 +1109,7 @@
    "explanation": "Daemonize with procmgr_daemon() and register PROCMGR_EVENT_DAEMON_DEATH pulse notifications (or attach to HAM if installed).",
    "before_code": "#!/bin/sh\n# Restart vitals_monitor if it dies. Run from cron every minute.\nif ! pgrep -x vitals_monitor >/dev/null; then\n    logger -t vitals-watchdog \"vitals_monitor not running, restarting\"\n    /usr/local/bin/vitals_monitor &\nfi",
    "after_code": "#include <sys/procmgr.h>\n#include <sys/siginfo.h>\n\nstruct sigevent ev;\nSIGEV_PULSE_INIT(&ev, main_coid, 20, PULSE_CODE_SHUTDOWN, 0);\nint handle = procmgr_event_notify_add(PROCMGR_EVENT_DAEMON_DEATH, &ev);\n(void)handle;",
-   "qcc_syntax_check": "failed",
+   "qcc_syntax_check": "skipped",
    "verify_command": "pidin -F '%a %b %N'  # on target, confirm supervised daemon running",
    "est_effort": "M"
   },
@@ -932,7 +1123,7 @@
    "explanation": "Register a slog2 buffer set at start-up and route log calls through slog2f().",
    "before_code": "/* src/vitals.c */\n    int fd = open(I2C_BUS, O_RDWR);\n    if (fd < 0) { syslog(LOG_ERR, \"open %s: %m\", I2C_BUS); return -1; }\n    if (ioctl(fd, I2C_SLAVE, SENSOR_ADDR) < 0) { syslog(LOG_ERR, \"I2C_SLAVE: %m\"); return -1; }\n    return fd;\n}",
    "after_code": "#include <sys/slog2.h>\n\nslog2_buffer_set_config_t cfg = {0};\nslog2_buffer_t buf;\ncfg.buffer_set_name = \"motor_pid\";\ncfg.num_buffers = 1;\ncfg.verbosity_level = SLOG2_INFO;\ncfg.buffer_config[0].buffer_name = \"main\";\ncfg.buffer_config[0].num_pages = 4;\nif (slog2_register(&cfg, &buf, 0) == 0)\n    slog2_set_default_buffer(buf);\nslog2f(NULL, 0, SLOG2_INFO, \"started, period=%d us\", 1000);",
-   "qcc_syntax_check": "failed",
+   "qcc_syntax_check": "skipped",
    "verify_command": "slog2info -b motor_pid  # on target",
    "est_effort": "S"
   },
@@ -983,31 +1174,31 @@
    "path": "include/qnx_compat.h",
    "description": "Only the compatibility shims this repo needs",
    "content": "/*\n * qnx_compat.h - generated by QNX Integration Advisor for vitals-monitor.\n * Contains only the shims this repository needs:\n *   - qnx_periodic_timer_*: timerfd-like periodic timer (QNX: timer_create + pulse)\n *   - qnx_notifier_*: eventfd-like wake-up (QNX: pulse on a channel, else a pipe)\n * Licensed under Apache-2.0.\n */\n#ifndef QNX_COMPAT_H\n#define QNX_COMPAT_H\n\n#include <errno.h>\n#include <stdint.h>\n#include <time.h>\n#include <unistd.h>\n\n#ifdef __QNX__\n#include <sys/neutrino.h>\n#include <sys/siginfo.h>\n\n#ifdef _NTO_CHF_PRIVATE\n#define QNX_COMPAT_CHF _NTO_CHF_PRIVATE\n#else\n#define QNX_COMPAT_CHF 0\n#endif\n\n#define QNX_COMPAT_PULSE_TIMER   (_PULSE_CODE_MINAVAIL + 0)\n#endif /* __QNX__ */\n\n/* ------------------------------------------------------------------ periodic timer */\ntypedef struct {\n#ifdef __QNX__\n    int     chid;\n    int     coid;\n    timer_t timer;\n#else\n    int     fd;\n#endif\n} qnx_periodic_timer_t;\n\n#ifdef __QNX__\nstatic inline int qnx_periodic_timer_create(qnx_periodic_timer_t *t, uint64_t period_ns, int pulse_prio)\n{\n    struct sigevent   ev;\n    struct itimerspec its;\n\n    t->chid = ChannelCreate(QNX_COMPAT_CHF);\n    if (t->chid == -1)\n        return -1;\n    t->coid = ConnectAttach(0, 0, t->chid, _NTO_SIDE_CHANNEL, 0);\n    if (t->coid == -1) {\n        ChannelDestroy(t->chid);\n        return -1;\n    }\n    SIGEV_PULSE_INIT(&ev, t->coid, pulse_prio, QNX_COMPAT_PULSE_TIMER, 0);\n    if (timer_create(CLOCK_MONOTONIC, &ev, &t->timer) == -1) {\n        ConnectDetach(t->coid);\n        ChannelDestroy(t->chid);\n        return -1;\n    }\n    its.it_value.tv_sec  = (time_t)(period_ns / 1000000000ULL);\n    its.it_value.tv_nsec = (long)(period_ns % 1000000000ULL);\n    its.it_interval      = its.it_value;\n    if (timer_settime(t->timer, 0, &its, NULL) == -1) {\n        timer_delete(t->timer);\n        ConnectDetach(t->coid);\n        ChannelDestroy(t->chid);\n        return -1;\n    }\n    return 0;\n}\n\n/* Blocks until the next period. Other pulses on this private channel are ignored. */\nstatic inline int qnx_periodic_timer_wait(qnx_periodic_timer_t *t)\n{\n    struct _pulse p;\n    for (;;) {\n        if (MsgReceivePulse(t->chid, &p, sizeof p, NULL) == -1)\n            return -1;\n        if (p.code == QNX_COMPAT_PULSE_TIMER)\n            return 0;\n    }\n}\n\nstatic inline void qnx_periodic_timer_destroy(qnx_periodic_timer_t *t)\n{\n    timer_delete(t->timer);\n    ConnectDetach(t->coid);\n    ChannelDestroy(t->chid);\n}\n#else  /* Linux and other POSIX hosts keep the original timerfd behaviour */\n#include <sys/timerfd.h>\nstatic inline int qnx_periodic_timer_create(qnx_periodic_timer_t *t, uint64_t period_ns, int pulse_prio)\n{\n    struct itimerspec its;\n    (void)pulse_prio;\n    t->fd = timerfd_create(CLOCK_MONOTONIC, 0);\n    if (t->fd == -1)\n        return -1;\n    its.it_value.tv_sec  = (time_t)(period_ns / 1000000000ULL);\n    its.it_value.tv_nsec = (long)(period_ns % 1000000000ULL);\n    its.it_interval      = its.it_value;\n    return timerfd_settime(t->fd, 0, &its, NULL);\n}\n\nstatic inline int qnx_periodic_timer_wait(qnx_periodic_timer_t *t)\n{\n    uint64_t exp;\n    return read(t->fd, &exp, sizeof exp) == (ssize_t)sizeof exp ? 0 : -1;\n}\n\nstatic inline void qnx_periodic_timer_destroy(qnx_periodic_timer_t *t)\n{\n    close(t->fd);\n}\n#endif\n\n/* ------------------------------------------------------------------ notifier */\ntypedef struct {\n#ifdef __QNX__\n    int coid;\n    int code;\n#else\n    int fds[2];\n#endif\n} qnx_notifier_t;\n\n#ifdef __QNX__\n/* chid: the receiving loop's channel. code: a pulse code >= _PULSE_CODE_MINAVAIL. */\nstatic inline int qnx_notifier_init(qnx_notifier_t *n, int chid, int code)\n{\n    n->code = code;\n    n->coid = ConnectAttach(0, 0, chid, _NTO_SIDE_CHANNEL, 0);\n    return n->coid == -1 ? -1 : 0;\n}\n\nstatic inline int qnx_notifier_signal(qnx_notifier_t *n, int value)\n{\n    return MsgSendPulse(n->coid, -1, n->code, value);   /* -1: sender's priority */\n}\n\nstatic inline void qnx_notifier_destroy(qnx_notifier_t *n)\n{\n    ConnectDetach(n->coid);\n}\n#else\n#include <fcntl.h>\nstatic inline int qnx_notifier_init(qnx_notifier_t *n, int chid, int code)\n{\n    (void)chid; (void)code;\n    if (pipe(n->fds) == -1)\n        return -1;\n    return fcntl(n->fds[1], F_SETFL, O_NONBLOCK);\n}\n\nstatic inline int qnx_notifier_signal(qnx_notifier_t *n, int value)\n{\n    unsigned char b = (unsigned char)value;\n    return write(n->fds[1], &b, 1) == 1 ? 0 : -1;\n}\n\nstatic inline void qnx_notifier_destroy(qnx_notifier_t *n)\n{\n    close(n->fds[0]);\n    close(n->fds[1]);\n}\n#endif\n\n#endif /* QNX_COMPAT_H */\n",
-   "qcc_compiled": "both"
+   "qcc_compiled": "skipped"
   },
   {
    "path": "src/qnx_vitals_monitor_resmgr.c",
    "description": "Resource manager skeleton at /dev/vitals_monitor (dispatch/iofunc, pulse timer, procmgr_ability)",
    "content": "/*\n * qnx_vitals_monitor_resmgr.c - single-threaded QNX 8.0 resource manager skeleton at /dev/vitals_monitor.\n * Generated by QNX Integration Advisor for vitals-monitor. Apache-2.0.\n *\n *   read()   -> text status line\n *   write()  -> sets an integer value (e.g. a setpoint)\n *   devctl() -> DCMD_VITALS_MONITOR_GET_STATUS / DCMD_VITALS_MONITOR_SET_VALUE (vitals_monitor_dcmd.h)\n *   periodic timer pulse (pulse_attach) -> tick_handler(), where the repo's loop body goes\n *\n * Build:  qcc -Vgcc_ntox86_64 -Wall -Wextra -Werror -Iinclude -Isrc -o vitals_monitor_resmgr src/qnx_vitals_monitor_resmgr.c\n * Run:    vitals_monitor_resmgr -p 1 -u 1000 &      (starts as root, drops to uid 1000)\n */\n#include <errno.h>\n#include <fcntl.h>\n#include <stdint.h>\n#include <stdio.h>\n#include <stdlib.h>\n#include <string.h>\n#include <time.h>\n#include <unistd.h>\n\n#include <devctl.h>\n#include <sys/iofunc.h>\n#include <sys/dispatch.h>\n#include <sys/neutrino.h>\n#include <sys/procmgr.h>\n#include <sys/stat.h>\n\n#include \"vitals_monitor_dcmd.h\"\n\ntypedef struct {\n    /* TODO: embed the repository's main state (vitals_shm_t from src/vitals_shm.h) here. */\n    vitals_monitor_status_t status;\n} service_state_t;\n\nstatic service_state_t        state;\nstatic resmgr_connect_funcs_t connect_funcs;\nstatic resmgr_io_funcs_t      io_funcs;\nstatic iofunc_attr_t          dev_attr;\nstatic char                   read_buf[128];\n\n/* ------------------------------------------------------------------ read() */\nstatic int io_read(resmgr_context_t *ctp, io_read_t *msg, RESMGR_OCB_T *ocb)\n{\n    int status = iofunc_read_verify(ctp, msg, ocb, NULL);\n    if (status != EOK)\n        return status;\n    if ((msg->i.xtype & _IO_XTYPE_MASK) != _IO_XTYPE_NONE)\n        return ENOSYS;\n\n    if (ocb->offset == 0) {\n        int n = snprintf(read_buf, sizeof read_buf, \"value=%d ticks=%llu\\n\",\n                         (int)state.status.value, (unsigned long long)state.status.ticks);\n        if (n < 0)\n            return EIO;\n    }\n    size_t len = strlen(read_buf);\n    size_t nbytes = 0;\n    if (ocb->offset >= 0 && (size_t)ocb->offset < len) {\n        nbytes = len - (size_t)ocb->offset;\n        if (nbytes > (size_t)_IO_READ_GET_NBYTES(msg))\n            nbytes = (size_t)_IO_READ_GET_NBYTES(msg);\n    }\n    _IO_SET_READ_NBYTES(ctp, nbytes);\n    if (nbytes == 0)\n        return _RESMGR_NPARTS(0);\n    SETIOV(ctp->iov, read_buf + ocb->offset, nbytes);\n    ocb->offset += (off_t)nbytes;\n    ocb->attr->flags |= IOFUNC_ATTR_ATIME;\n    return _RESMGR_NPARTS(1);\n}\n\n/* ------------------------------------------------------------------ write() */\nstatic int io_write(resmgr_context_t *ctp, io_write_t *msg, RESMGR_OCB_T *ocb)\n{\n    int status = iofunc_write_verify(ctp, msg, ocb, NULL);\n    if (status != EOK)\n        return status;\n    if ((msg->i.xtype & _IO_XTYPE_MASK) != _IO_XTYPE_NONE)\n        return ENOSYS;\n\n    size_t nbytes = (size_t)_IO_WRITE_GET_NBYTES(msg);\n    char   buf[32];\n    size_t want = nbytes < sizeof buf - 1 ? nbytes : sizeof buf - 1;\n    ssize_t got = resmgr_msgread(ctp, buf, want, sizeof msg->i);\n    if (got == -1)\n        return errno;\n    buf[got] = '\\0';\n    state.status.value = (int32_t)strtol(buf, NULL, 10);   /* TODO: parse the repo's command format */\n\n    _IO_SET_WRITE_NBYTES(ctp, nbytes);\n    if (nbytes > 0)\n        ocb->attr->flags |= IOFUNC_ATTR_MTIME | IOFUNC_ATTR_CTIME;\n    return EOK;\n}\n\n/* ------------------------------------------------------------------ devctl() */\nstatic int io_devctl(resmgr_context_t *ctp, io_devctl_t *msg, RESMGR_OCB_T *ocb)\n{\n    int status = iofunc_devctl_default(ctp, msg, ocb);\n    if (status != _RESMGR_DEFAULT)\n        return status;\n\n    void  *data = _DEVCTL_DATA(msg->i);\n    size_t nbytes = 0;\n\n    switch (msg->i.dcmd) {\n    case DCMD_VITALS_MONITOR_GET_STATUS:\n        if (msg->i.nbytes < sizeof(state.status))\n            return EINVAL;\n        memcpy(data, &state.status, sizeof(state.status));\n        nbytes = sizeof(state.status);\n        break;\n    case DCMD_VITALS_MONITOR_SET_VALUE: {\n        int32_t v;\n        if (msg->i.nbytes < sizeof v)\n            return EINVAL;\n        if (resmgr_msgread(ctp, &v, sizeof v, sizeof msg->i) != (ssize_t)sizeof v)\n            return EFAULT;\n        state.status.value = v;\n        break;\n    }\n    default:\n        return ENOSYS;\n    }\n\n    memset(&msg->o, 0, sizeof msg->o);\n    msg->o.ret_val = EOK;\n    msg->o.nbytes = (uint32_t)nbytes;\n    return _RESMGR_PTR(ctp, &msg->o, sizeof msg->o + nbytes);\n}\n\n/* ------------------------------------------------------------------ timer pulse */\nstatic int tick_handler(message_context_t *ctp, int code, unsigned flags, void *handle)\n{\n    (void)ctp; (void)code; (void)flags; (void)handle;\n    state.status.ticks++;\n    /* TODO: move the body of vitals-monitor's periodic loop here\n       (read inputs, compute, write outputs). It runs in the resmgr's single thread,\n       so it is serialized with client requests and needs no extra locking. */\n    return 0;\n}\n\nstatic int drop_privileges(uid_t uid)\n{\n    /* Path registration is done. Deny and lock every ability for the non-root domain,\n       then become that user. */\n    int rc = procmgr_ability(0, PROCMGR_ADN_NONROOT | PROCMGR_AOP_DENY | PROCMGR_AOP_LOCK | PROCMGR_AID_EOL);\n    if (rc != EOK) {\n        fprintf(stderr, \"procmgr_ability: %s\\n\", strerror(rc));\n        return -1;\n    }\n    if (setgid((gid_t)uid) == -1 || setuid(uid) == -1) {\n        perror(\"setuid\");\n        return -1;\n    }\n    return 0;\n}\n\nint main(int argc, char **argv)\n{\n    long period_ms = 1;\n    long run_uid = -1;\n    int  opt;\n    while ((opt = getopt(argc, argv, \"p:u:\")) != -1) {\n        switch (opt) {\n        case 'p': period_ms = strtol(optarg, NULL, 10); break;\n        case 'u': run_uid = strtol(optarg, NULL, 10); break;\n        default:\n            fprintf(stderr, \"usage: %s [-p period_ms] [-u uid]\\n\", argv[0]);\n            return EXIT_FAILURE;\n        }\n    }\n    if (period_ms <= 0)\n        period_ms = 1;\n\n    dispatch_t *dpp = dispatch_create();\n    if (dpp == NULL) {\n        perror(\"dispatch_create\");\n        return EXIT_FAILURE;\n    }\n\n    resmgr_attr_t rattr;\n    memset(&rattr, 0, sizeof rattr);\n    rattr.nparts_max = 1;\n    rattr.msg_max_size = 2048;\n\n    iofunc_func_init(_RESMGR_CONNECT_NFUNCS, &connect_funcs, _RESMGR_IO_NFUNCS, &io_funcs);\n    io_funcs.read = io_read;\n    io_funcs.write = io_write;\n    io_funcs.devctl = io_devctl;\n    iofunc_attr_init(&dev_attr, S_IFCHR | 0666, NULL, NULL);\n\n    if (resmgr_attach(dpp, &rattr, \"/dev/vitals_monitor\", _FTYPE_ANY, 0, &connect_funcs, &io_funcs, &dev_attr) == -1) {\n        perror(\"resmgr_attach /dev/vitals_monitor\");\n        return EXIT_FAILURE;\n    }\n\n    int code = pulse_attach(dpp, MSG_FLAG_ALLOC_PULSE, 0, tick_handler, NULL);\n    if (code == -1) {\n        perror(\"pulse_attach\");\n        return EXIT_FAILURE;\n    }\n    int coid = message_connect(dpp, MSG_FLAG_SIDE_CHANNEL);\n    if (coid == -1) {\n        perror(\"message_connect\");\n        return EXIT_FAILURE;\n    }\n    struct sigevent ev;\n    SIGEV_PULSE_INIT(&ev, coid, 21, code, 0);\n    timer_t timer;\n    if (timer_create(CLOCK_MONOTONIC, &ev, &timer) == -1) {\n        perror(\"timer_create\");\n        return EXIT_FAILURE;\n    }\n    struct itimerspec its;\n    its.it_value.tv_sec = period_ms / 1000;\n    its.it_value.tv_nsec = (period_ms % 1000) * 1000000L;\n    its.it_interval = its.it_value;\n    if (timer_settime(timer, 0, &its, NULL) == -1) {\n        perror(\"timer_settime\");\n        return EXIT_FAILURE;\n    }\n\n    if (run_uid >= 0 && drop_privileges((uid_t)run_uid) != 0)\n        return EXIT_FAILURE;\n\n    dispatch_context_t *ctp = dispatch_context_alloc(dpp);\n    if (ctp == NULL) {\n        perror(\"dispatch_context_alloc\");\n        return EXIT_FAILURE;\n    }\n    for (;;) {\n        dispatch_context_t *next = dispatch_block(ctp);\n        if (next == NULL) {\n            if (errno == EINTR)\n                continue;\n            perror(\"dispatch_block\");\n            return EXIT_FAILURE;\n        }\n        ctp = next;\n        dispatch_handler(ctp);\n    }\n}\n",
-   "qcc_compiled": "both"
+   "qcc_compiled": "skipped"
   },
   {
    "path": "src/vitals_monitor_dcmd.h",
    "description": "devctl() command definitions (__DIOF/__DIOT)",
    "content": "/*\n * vitals_monitor_dcmd.h - devctl() protocol for /dev/vitals_monitor.\n * Generated by QNX Integration Advisor for vitals-monitor. Apache-2.0.\n */\n#ifndef VITALS_MONITOR_DCMD_H\n#define VITALS_MONITOR_DCMD_H\n\n#include <devctl.h>\n#include <stdint.h>\n\ntypedef struct {\n    int32_t  value;        /* last value written by a client (e.g. a setpoint) */\n    uint32_t flags;\n    uint64_t ticks;        /* periodic timer pulses handled so far */\n} vitals_monitor_status_t;\n\n/* __DIOF: data from the driver; __DIOT: data to the driver; __DIOTF: both. */\n#define DCMD_VITALS_MONITOR_GET_STATUS   __DIOF(_DCMD_MISC, 0x01, vitals_monitor_status_t)\n#define DCMD_VITALS_MONITOR_SET_VALUE    __DIOT(_DCMD_MISC, 0x02, int32_t)\n\n#endif\n",
-   "qcc_compiled": "both"
+   "qcc_compiled": "skipped"
   },
   {
    "path": "src/vitals_monitorctl.c",
    "description": "Client: open + devctl, prints JSON",
    "content": "/*\n * vitals_monitorctl.c - tiny client for /dev/vitals_monitor (open + devctl).\n * Generated by QNX Integration Advisor for vitals-monitor. Apache-2.0.\n *   vitals_monitorctl            -> prints status as JSON\n *   vitals_monitorctl set 1500   -> DCMD_VITALS_MONITOR_SET_VALUE\n */\n#include <errno.h>\n#include <fcntl.h>\n#include <stdio.h>\n#include <stdlib.h>\n#include <string.h>\n#include <unistd.h>\n\n#include <devctl.h>\n\n#include \"vitals_monitor_dcmd.h\"\n\nint main(int argc, char **argv)\n{\n    int fd = open(\"/dev/vitals_monitor\", O_RDWR);\n    if (fd == -1) {\n        perror(\"open /dev/vitals_monitor\");\n        return EXIT_FAILURE;\n    }\n    int rc;\n    if (argc == 3 && strcmp(argv[1], \"set\") == 0) {\n        int32_t v = (int32_t)strtol(argv[2], NULL, 10);\n        rc = devctl(fd, DCMD_VITALS_MONITOR_SET_VALUE, &v, sizeof v, NULL);\n        if (rc != EOK) {\n            fprintf(stderr, \"devctl SET_VALUE: %s\\n\", strerror(rc));\n            close(fd);\n            return EXIT_FAILURE;\n        }\n    }\n    vitals_monitor_status_t st;\n    memset(&st, 0, sizeof st);\n    rc = devctl(fd, DCMD_VITALS_MONITOR_GET_STATUS, &st, sizeof st, NULL);\n    close(fd);\n    if (rc != EOK) {\n        fprintf(stderr, \"devctl GET_STATUS: %s\\n\", strerror(rc));\n        return EXIT_FAILURE;\n    }\n    printf(\"{\\\"value\\\": %d, \\\"flags\\\": %u, \\\"ticks\\\": %llu}\\n\",\n           (int)st.value, (unsigned)st.flags, (unsigned long long)st.ticks);\n    return EXIT_SUCCESS;\n}\n",
-   "qcc_compiled": "both"
+   "qcc_compiled": "skipped"
   },
   {
    "path": "tests/compat_selftest.c",
    "description": "Runs every shim in qnx_compat.h on the target",
    "content": "/*\n * compat_selftest.c - exercises qnx_compat.h so the shims are compiled and run on the target.\n * Generated by QNX Integration Advisor for vitals-monitor. Apache-2.0.\n * Exit status 0 means every shim worked.\n */\n#include <stdio.h>\n#include <stdlib.h>\n\n#include \"qnx_compat.h\"\n\nint main(void)\n{\n    int failures = 0;\n    qnx_periodic_timer_t t;\n    if (qnx_periodic_timer_create(&t, 1000000ULL, 10) != 0) {\n        perror(\"qnx_periodic_timer_create\");\n        failures++;\n    } else {\n        for (int i = 0; i < 100; i++) {\n            if (qnx_periodic_timer_wait(&t) != 0) {\n                perror(\"qnx_periodic_timer_wait\");\n                failures++;\n                break;\n            }\n        }\n        qnx_periodic_timer_destroy(&t);\n        printf(\"periodic timer: 100 periods ok\\n\");\n    }\n#ifdef __QNX__\n    int chid = ChannelCreate(QNX_COMPAT_CHF);\n    qnx_notifier_t n;\n    if (chid == -1 || qnx_notifier_init(&n, chid, _PULSE_CODE_MINAVAIL + 5) != 0) {\n        perror(\"qnx_notifier_init\");\n        failures++;\n    } else {\n        struct _pulse p;\n        if (qnx_notifier_signal(&n, 42) == -1 || MsgReceivePulse(chid, &p, sizeof p, NULL) == -1\n            || p.code != _PULSE_CODE_MINAVAIL + 5 || p.value.sival_int != 42) {\n            fprintf(stderr, \"notifier pulse mismatch\\n\");\n            failures++;\n        } else {\n            printf(\"notifier: pulse ok\\n\");\n        }\n        qnx_notifier_destroy(&n);\n        ChannelDestroy(chid);\n    }\n#endif\n    return failures == 0 ? EXIT_SUCCESS : EXIT_FAILURE;\n}\n",
-   "qcc_compiled": "both"
+   "qcc_compiled": "skipped"
   },
   {
    "path": "Makefile.qnx",
@@ -1043,6 +1234,6 @@
   "ipc_server"
  ],
  "service_name": "vitals_monitor",
- "generated_at_utc": "2026-11-10T22:17:53Z",
+ "generated_at_utc": "2026-11-11T23:31:24Z",
  "sysroot_verified": true
 }

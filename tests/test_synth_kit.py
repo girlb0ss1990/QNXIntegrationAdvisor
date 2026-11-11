@@ -143,3 +143,36 @@ def test_openrouter_provider_selection_and_request(monkeypatch):
     import pytest
     with pytest.raises(llm.LLMError):
         p._call("sys", "user")
+
+
+def test_why_qnx_benefits_are_evidence_backed_and_number_free(tmp_path, fake_index):
+    from advisor.synth.guard import NUMERIC_CLAIM_RE
+    r = _analyze("motor-pid-controller").report
+    ids = {b.id: b for b in r.benefits}
+    assert r.qnx_fit and r.qnx_fit.level == "strong"
+    assert ids["realtime_determinism"].strength == "high"
+    assert ids["fault_isolation"].strength == "high"
+    for b in r.benefits:
+        assert b.evidence_summary, b.id
+        assert not NUMERIC_CLAIM_RE.search(b.why.replace(b.evidence_summary, "")), b.id
+    assert any("not measurements" in c for c in r.qnx_fit.caveats)
+
+    # plain portable C code: no roles, no Linux-specific patterns -> limited benefit, honest headline
+    (tmp_path / "main.c").write_text("#include <stdio.h>\nint main(void){puts(\"hi\");return 0;}\n")
+    plain = analyze(str(tmp_path), env=Environment(sdp=None, index=None), compile_kit_files=False).report
+    assert plain.qnx_fit.level == "limited" and plain.benefits == []
+
+
+def test_llm_benefit_rewrites_are_guarded(fake_index):
+    from advisor.synth.llm import LLMBenefitNote
+    res = _analyze("motor-pid-controller", fake_index)
+    e = LLMEnrichment(summary="", fit_headline="Strong fit: main.c runs a motor loop that QNX schedules predictably.",
+                      benefits=[LLMBenefitNote(id="realtime_determinism",
+                                               why="Use magic_rt_boost() to cut latency by 90%."),
+                                LLMBenefitNote(id="fault_isolation",
+                                               why="motor_io.c can run as its own resource manager process.")])
+    out = apply_enrichment(res.report, e, Guard(fake_index, res.scan.repo_symbols), res.scan)
+    b = {x.id: x for x in out.benefits}
+    assert "magic_rt_boost" not in b["realtime_determinism"].why          # unknown API removed, original kept
+    assert b["fault_isolation"].why.startswith("motor_io.c")
+    assert out.qnx_fit.level == "strong" and out.qnx_fit.headline.startswith("Strong fit: main.c")

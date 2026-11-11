@@ -3,6 +3,11 @@ export type Severity = "blocker" | "high" | "medium" | "low" | "info";
 export type EvidenceType = "measured" | "static" | "documented" | "qualitative";
 
 export interface SourceLocation { file_path: string; line_start: number; line_end: number; snippet: string }
+export interface Benefit {
+  id: string; title: string; capability: string; why: string; evidence_summary: string;
+  evidence_locations: SourceLocation[]; strength: "high" | "medium" | "low"; related_features: string[];
+}
+export interface QnxFit { level: "strong" | "good" | "possible" | "limited"; headline: string; reasons: string[]; caveats: string[] }
 export interface Alternative { kind: string; apis: string[]; note: string }
 export interface Finding {
   rule_id: string; title: string; severity: Severity;
@@ -32,6 +37,7 @@ export interface IntegrationReport {
   schema_version: "2.0"; repo_url: string; commit_sha: string; mode: "M1" | "M2" | "M3";
   sdp_version: string | null; languages: string[]; build_systems: string[]; readiness_score: number | null; applicable?: boolean;
   summary: string; findings: Finding[]; pillar1_features: FeatureRecommendation[];
+  benefits?: Benefit[]; qnx_fit?: QnxFit | null;
   pillar2_improvements: Improvement[]; pillar3_steps: Step[]; kit: KitFile[];
   verification: VerificationRecord[]; unverified_claims_removed: number; roles: string[];
   service_name: string; generated_at_utc: string; sysroot_verified: boolean;

@@ -64,6 +64,24 @@ class Improvement(BaseModel):                     # Pillar 2
     measurement_ref: Optional[str] = None
 
 
+class Benefit(BaseModel):                         # "Why QNX?"
+    id: str
+    title: str
+    capability: str
+    why: str
+    evidence_summary: str = ""
+    evidence_locations: list[SourceLocation] = []
+    strength: Literal["high", "medium", "low"]
+    related_features: list[str] = []
+
+
+class QnxFit(BaseModel):
+    level: Literal["strong", "good", "possible", "limited"]
+    headline: str
+    reasons: list[str] = []
+    caveats: list[str] = []
+
+
 class Step(BaseModel):                            # Pillar 3
     n: int
     title: str
@@ -109,6 +127,8 @@ class IntegrationReport(BaseModel):
     applicable: bool = True               # False: no C/C++ sources, nothing to port at the OS-API level
     summary: str
     findings: list[Finding] = []
+    benefits: list[Benefit] = []
+    qnx_fit: Optional[QnxFit] = None
     pillar1_features: list[FeatureRecommendation] = []
     pillar2_improvements: list[Improvement] = []
     pillar3_steps: list[Step] = []

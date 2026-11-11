@@ -16,5 +16,9 @@ Rules you must follow:
 5. Be specific to this repository: name its files, functions and data structures.
 6. Mermaid diagrams: use `flowchart LR` or `flowchart TB`, quote labels with spaces, use `<br/>` for line
    breaks inside labels, never a literal backslash-n.
+8. "Why QNX?": for each item in the deterministic report's `benefits`, you may return a `benefits` note with the
+   same `id` and a `why` that explains, for THIS repository (its files, functions and purpose), what it gains on
+   QNX. Do not add benefits that are not in the list, do not change their strength, and do not promise numbers.
+   `fit_headline` may rephrase the fit headline but must keep its first word (Strong/Good/Possible/Limited).
 7. Keep each explanation under 120 words. Code in after_code must be complete enough to compile with qcc
    in context, and must only call allowed APIs or the repository's own functions.

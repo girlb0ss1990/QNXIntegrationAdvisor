@@ -19,6 +19,15 @@ def to_markdown(r: IntegrationReport) -> str:
         locs = ", ".join(f"`{l.file_path}:{l.line_start}`" for l in f.locations[:4])
         extra = f" (link: {', '.join('-l' + x for x in f.link_libs)})" if f.link_libs else ""
         L.append(f"| {f.severity} | {f.rule_id} {f.title} | {f.sysroot_status} | {locs} | {f.guidance}{extra} |")
+    if r.qnx_fit and r.benefits:
+        L += ["", "## Why QNX?", "", f"**{r.qnx_fit.headline}**", ""]
+        for b in r.benefits:
+            locs = ", ".join(f"`{l.file_path}:{l.line_start}`" for l in b.evidence_locations)
+            L += [f"### {b.title} ({b.strength} evidence)", "", f"QNX capability: {b.capability}", "", b.why, ""]
+            if locs:
+                L += [f"Evidence: {locs}", ""]
+        if r.qnx_fit.caveats:
+            L += ["Things to keep in mind:", ""] + [f"- {c}" for c in r.qnx_fit.caveats] + [""]
     L += ["", "## Pillar 1: Relevant QNX features", ""]
     for p in r.pillar1_features:
         L += [f"### {p.feature.replace('_', ' ')} (relevance {p.relevance}/5){' ✓ sysroot' if p.verified_in_sysroot else ''}",

@@ -1,0 +1,114 @@
+# "Why QNX?" catalogue: what a repository gains by running on QNX 8.0.
+#
+# Each benefit is shown only when the scan finds evidence for it in the repository (a detected role or a
+# rule finding). `strong_roles` / `strong_rules` raise the strength to "high"; other triggers give "medium".
+# Text is reviewed by hand: no performance numbers, no guarantees. Placeholders: {service}, {evidence}.
+
+realtime_determinism:
+  title: Predictable timing for time-critical work
+  capability: Hard real-time, priority-preemptive scheduling
+  triggers:
+    roles: [periodic_control_loop]
+    rules: [LNX-PERIODIC-SLEEP, LNX-TIMERFD, LNX-PRIO-INV, LNX-AFFINITY, LNX-CPU-BUDGET]
+  strong_roles: [periodic_control_loop]
+  strong_rules: [LNX-PRIO-INV]
+  # A sleep loop on its own may just be polling every few minutes: weak evidence of time-critical work.
+  rules_only_strength: low
+  why: >-
+    {service} has timing-sensitive code ({evidence}). On a general-purpose Linux kernel, exactly when that code
+    runs depends on everything else the system is doing. QNX is a hard real-time OS: the highest-priority ready
+    thread always runs, timers can deliver a pulse straight to the waiting thread, mutexes and message passing
+    use priority inheritance, and run-masks can keep a core free for the critical thread, so timing stays
+    predictable when the system is busy.
+  features: [channels_pulses, priority_inheritance, sporadic_scheduling, runmask_affinity]
+
+fault_isolation:
+  title: A driver or service crash does not take the system down
+  capability: Microkernel architecture with user-space drivers
+  triggers:
+    roles: [device_service]
+    rules: [LNX-I2C, LNX-SPI, LNX-SOCKETCAN]      # ioctl/sysfs alone are often network or config access
+  strong_roles: [device_service]
+  why: >-
+    {service} works with hardware ({evidence}). On Linux, device drivers run inside the kernel, so a driver bug can
+    bring down the whole machine. In QNX the kernel only schedules, passes messages and handles interrupts;
+    drivers and services such as {service} run as ordinary processes with their own memory protection. If one
+    fails, the kernel and the other processes keep running and the failed process can be restarted.
+  features: [resource_manager, channels_pulses]
+
+supervised_recovery:
+  title: Automatic detection and restart when a process dies
+  capability: Process-manager death notifications (and HAM where installed)
+  triggers:
+    roles: [daemon]
+    rules: [LNX-SYSTEMD, LNX-FORK]
+  strong_roles: [daemon]
+  why: >-
+    {service} relies on Linux supervision ({evidence}). On QNX a small guardian can register for
+    PROCMGR_EVENT_DAEMON_DEATH and receive a kernel pulse the moment the daemon exits, then restart it with
+    posix_spawn(); because services are isolated processes, restarting one does not disturb the others.
+  features: [ham]
+
+least_privilege:
+  title: Run without full root rights
+  capability: Fine-grained process abilities and security policies
+  triggers:
+    rules: [LNX-PRCTL-CAPS, LNX-SHM]
+  strong_rules: [LNX-PRCTL-CAPS]
+  why: >-
+    {service} currently needs elevated rights ({evidence}). QNX splits root's power into individual abilities
+    (for example: create a /dev entry, raise thread priority, map physical memory). With procmgr_ability() the
+    service keeps only the abilities it needs, locks them, and then runs as a normal user; secpol policies can
+    enforce the same rules system-wide. A compromised service can then do far less damage.
+  features: [procmgr_ability, secpol]
+
+message_passing:
+  title: Fast, priority-aware communication between processes
+  capability: Synchronous message passing as the core of the OS
+  triggers:
+    roles: [ipc_server]
+    rules: [LNX-EVENTFD, LNX-SHM]                  # internet sockets and epoll alone are not inter-process work
+  strong_roles: [ipc_server]
+  why: >-
+    {service} coordinates work through Linux event and IPC mechanisms ({evidence}). In QNX, message passing is
+    how the whole OS works: a client's MsgSend() copies data directly into the server, blocks until the reply,
+    and the server temporarily runs at the client's priority. Clients can also simply open() and read() a
+    /dev/{service} path. This gives one consistent, priority-aware way to talk between components.
+  features: [resource_manager, channels_pulses, typed_shared_memory]
+
+safety_certification:
+  title: A path to functional-safety certification
+  capability: Safety-certified QNX OS variant available
+  triggers:
+    roles: [periodic_control_loop, device_service]
+    rules: [LNX-SOCKETCAN, LNX-I2C, LNX-SPI]
+  strong_roles: [periodic_control_loop]
+  why: >-
+    {service} looks like embedded control or device software ({evidence}). If it ever has to meet a functional
+    safety standard (automotive, industrial or medical), QNX offers a safety-certified variant of the OS, which
+    removes a large part of the work compared with arguing the safety of a general-purpose kernel. Your own
+    application still needs its own safety process.
+  features: []
+
+observability:
+  base_strength: low
+  title: See exactly what the system did, and when
+  capability: Kernel event tracing and structured system logging
+  triggers:
+    rules: [LNX-LOG, LNX-PROCFS, LNX-PERIODIC-SLEEP, LNX-PRIO-INV]
+  why: >-
+    {service} relies on Linux logging or /proc inspection ({evidence}). QNX's tracelogger records kernel events
+    (thread switches, messages, interrupts) with timestamps, which shows exactly why a deadline was missed;
+    slog2 gives fast, structured logs that stay readable after a crash.
+  features: [tracelogger]
+
+posix_portability:
+  base_strength: low
+  title: Most of the code carries over
+  capability: POSIX-compliant OS
+  triggers:
+    any_finding: true
+  why: >-
+    QNX implements the POSIX APIs this code already relies on (threads, timers, sockets, files), so the port
+    is about the Linux-only parts listed in the audit rather than a rewrite. {evidence}
+  features: []
