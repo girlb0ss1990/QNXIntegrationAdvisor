@@ -6,7 +6,7 @@ import tempfile
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable
+from typing import Callable, Optional
 
 from .ingest import IngestedRepo, ingest
 from .kit.generator import KitContext, generate_kit, render_resmgr_excerpt, write_kit
@@ -48,7 +48,7 @@ class AnalysisResult:
     report: IntegrationReport
     scan: ScanResult
     repo: IngestedRepo
-    kit_ctx: KitContext
+    kit_ctx: Optional[KitContext]
     messages: list[str]
 
 
@@ -60,6 +60,27 @@ def _period_ms(sr: ScanResult) -> int:
         if m and int(m.group(1)) > 0:
             return max(1, 1000 // int(m.group(1)))
     return 1 if "periodic_control_loop" in sr.roles else 100
+
+
+def _not_applicable_report(repo, sr, env: Environment, emit: Emit) -> IntegrationReport:
+    """No C/C++ sources: the advisor's rules target C/C++ OS APIs, so a score would be meaningless."""
+    other = sorted(sr.files.languages)
+    found = f"It contains {', '.join(other)} code" if other else "No source files in a recognised language were found"
+    summary = (f"Not applicable: no C or C++ source files were found in this repository. {found}. "
+               "The QNX Integration Advisor analyses C/C++ code that calls Linux/POSIX system APIs "
+               "(threads, timers, IPC, device I/O). Interpreted or managed-language projects need a QNX "
+               "port of their runtime instead, which is outside the scope of this tool. No readiness score, "
+               "porting kit or AI enrichment was produced.")
+    emit("rules", {"message": "no C/C++ sources: not applicable, no score", "count": 0})
+    idx = env.index
+    return IntegrationReport(
+        repo_url=repo.source, commit_sha=repo.commit_sha, mode="M1",
+        sdp_version=idx.sdp_version if idx else None, languages=other,
+        build_systems=sr.files.build_systems, readiness_score=None, applicable=False, summary=summary,
+        roles=[], service_name=sr.service_name,
+        generated_at_utc=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        sysroot_verified=idx is not None,
+    )
 
 
 def analyze(source: str, ref: str | None = None, arch: str = "x86_64", use_llm: bool = False,
@@ -76,6 +97,10 @@ def analyze(source: str, ref: str | None = None, arch: str = "x86_64", use_llm: 
         emit("scan", {"message": f"scanned {len(sr.files.sources)} C/C++ files with {sr.parser}",
                       "files": len(sr.files.sources), "build_systems": sr.files.build_systems,
                       "roles": sr.roles, "vendored_skipped": sr.files.vendored})
+
+        if not sr.files.sources:
+            return AnalysisResult(report=_not_applicable_report(repo, sr, env, emit), scan=sr, repo=repo,
+                                  kit_ctx=None, messages=messages)
 
         idx = env.index
         if idx:

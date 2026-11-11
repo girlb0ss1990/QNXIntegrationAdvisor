@@ -11,7 +11,11 @@ from .limits import MAX_FILE_BYTES, MAX_SOURCE_FILES
 VENDORED_DIRS = {"third_party", "third-party", "vendor", "external", "node_modules", ".git", "build", "deps"}
 C_EXT = {".c", ".h"}
 CPP_EXT = {".cc", ".cpp", ".cxx", ".hpp", ".hh", ".hxx", ".ipp"}
-OTHER_LANG = {".rs": "Rust", ".py": "Python", ".go": "Go"}
+OTHER_LANG = {
+    ".rs": "Rust", ".py": "Python", ".go": "Go", ".js": "JavaScript", ".jsx": "JavaScript", ".mjs": "JavaScript",
+    ".ts": "TypeScript", ".tsx": "TypeScript", ".java": "Java", ".kt": "Kotlin", ".cs": "C#", ".swift": "Swift",
+    ".rb": "Ruby", ".php": "PHP", ".dart": "Dart", ".scala": "Scala",
+}
 
 BUILD_FILES = {
     "CMakeLists.txt": "CMake", "Makefile": "Make", "makefile": "Make", "GNUmakefile": "Make",

@@ -30,7 +30,7 @@ export interface VerificationRecord {
 }
 export interface IntegrationReport {
   schema_version: "2.0"; repo_url: string; commit_sha: string; mode: "M1" | "M2" | "M3";
-  sdp_version: string | null; languages: string[]; build_systems: string[]; readiness_score: number;
+  sdp_version: string | null; languages: string[]; build_systems: string[]; readiness_score: number | null; applicable?: boolean;
   summary: string; findings: Finding[]; pillar1_features: FeatureRecommendation[];
   pillar2_improvements: Improvement[]; pillar3_steps: Step[]; kit: KitFile[];
   verification: VerificationRecord[]; unverified_claims_removed: number; roles: string[];

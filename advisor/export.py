@@ -12,7 +12,8 @@ def to_markdown(r: IntegrationReport) -> str:
     L = [f"# QNX 8.0 Integration Report: {r.repo_url}", "",
          f"Commit `{r.commit_sha[:12]}` · mode {r.mode} · SDP {r.sdp_version or 'not found (unverified)'} · "
          f"generated {r.generated_at_utc}", "",
-         f"**Readiness score: {r.readiness_score}/100** ({FORMULA})", "", r.summary, "",
+         (f"**Readiness score: {r.readiness_score}/100** ({FORMULA})" if r.applicable
+          else "**Readiness score: not applicable** (no C/C++ sources)"), "", r.summary, "",
          "## Compatibility audit", "", "| Severity | Rule | Sysroot | Locations | Guidance |", "| :--- | :--- | :--- | :--- | :--- |"]
     for f in r.findings:
         locs = ", ".join(f"`{l.file_path}:{l.line_start}`" for l in f.locations[:4])

@@ -197,6 +197,8 @@ def create_app(sdp: str | None = None, target: str | None = None) -> FastAPI:
     def api_kit(job_id: str):
         from .kit.generator import kit_zip
         r = require_report(job_id)
+        if not r.applicable:
+            raise HTTPException(409, "no porting kit: repository has no C/C++ sources")
         name = f"qnx-kit-{r.service_name}"
         return Response(kit_zip(r.kit, name), media_type="application/zip",
                         headers={"Content-Disposition": f'attachment; filename="{name}.zip"'})
@@ -208,6 +210,8 @@ def create_app(sdp: str | None = None, target: str | None = None) -> FastAPI:
         from .verify.target import run_verification
         job = get_job(job_id)
         report = require_report(job_id)
+        if not report.applicable:
+            raise HTTPException(409, "nothing to verify: repository has no C/C++ sources")
         env = Environment.detect(sdp)
         if env.sdp is None:
             raise HTTPException(409, "live verification needs a local QNX SDP 8.0")
@@ -256,9 +260,10 @@ def create_app(sdp: str | None = None, target: str | None = None) -> FastAPI:
     def spa(path: str):
         if STATIC_DIR.is_dir():
             f = (STATIC_DIR / path).resolve()
-            if path and f.is_file() and STATIC_DIR.resolve() in f.parents:
-                return FileResponse(f)
-            return FileResponse(STATIC_DIR / "index.html")
+            if path and f.is_file() and STATIC_DIR.resolve() in f.parents and f.name != "index.html":
+                return FileResponse(f)   # hashed asset names: safe to cache
+            # index.html must never be cached, or an updated install keeps loading the old UI bundle
+            return FileResponse(STATIC_DIR / "index.html", headers={"Cache-Control": "no-cache"})
         return HTMLResponse("<h1>QNX Integration Advisor</h1><p>The web UI is not built. Run <code>make web</code>, "
                             "or use the API at <a href='/docs'>/docs</a>.</p>")
 

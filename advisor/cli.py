@@ -51,7 +51,9 @@ def cmd_scan(args) -> int:
         print(f"wrote {args.out}", file=sys.stderr)
     else:
         print(text)
-    if args.kit:
+    if args.kit and not r.applicable:
+        print("no porting kit: repository has no C/C++ sources (not applicable)", file=sys.stderr)
+    elif args.kit:
         from .kit.generator import write_kit
         write_kit(r.kit, Path(args.kit))
         print(f"wrote porting kit to {args.kit}", file=sys.stderr)

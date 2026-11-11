@@ -12,19 +12,27 @@ export function Summary({ r }: { r: IntegrationReport }) {
     r.findings.forEach((f) => { c[f.severity] = (c[f.severity] ?? 0) + 1; });
     return c;
   }, [r]);
+  const na = r.applicable === false || r.readiness_score === null;
   return (
-    <section className="summary">
-      <div className="score" title={SCORE_FORMULA}>
-        <div className="score-num">{r.readiness_score}</div>
-        <div className="score-label">readiness / 100 <span className="info-dot">ⓘ</span></div>
-      </div>
+    <section className={na ? "summary not-applicable" : "summary"}>
+      {na ? (
+        <div className="score" title="No C/C++ sources: this tool analyses C/C++ code, so no score is given.">
+          <div className="score-num">N/A</div>
+          <div className="score-label">not applicable</div>
+        </div>
+      ) : (
+        <div className="score" title={SCORE_FORMULA}>
+          <div className="score-num">{r.readiness_score}</div>
+          <div className="score-label">readiness / 100 <span className="info-dot">ⓘ</span></div>
+        </div>
+      )}
       <div className="summary-body">
         <h2>{r.repo_url}</h2>
         <div className="meta">
           <span>commit <code>{r.commit_sha.slice(0, 12)}</code></span>
-          <span>{r.languages.join(", ") || "no C/C++"}</span>
+          <span>{r.languages.join(", ") || "no recognised source files"}</span>
           <span>{r.build_systems.join(", ") || "no build system"}</span>
-          <span>service <code>{r.service_name}</code></span>
+          {!na && <span>service <code>{r.service_name}</code></span>}
           <span className={r.sysroot_verified ? "ok" : "warn"}>
             {r.sysroot_verified ? `verified against SDP ${r.sdp_version} sysroot` : "unverified against sysroot"}
           </span>

@@ -106,6 +106,7 @@ export default function App() {
         {report && (
           <>
             <Summary r={report} />
+            {report.applicable === false ? null : (<>
             <nav className="tabs">
               {(["audit", "pillars", "kit", "verify"] as Tab[]).map((t) => (
                 <button key={t} className={tab === t ? "on" : ""} onClick={() => setTab(t)}>
@@ -119,6 +120,7 @@ export default function App() {
             {tab === "pillars" && <PillarsTab r={report} />}
             {tab === "kit" && <KitTab r={report} kitUrl={jobId ? `api/jobs/${jobId}/kit.zip` : null} />}
             {tab === "verify" && <VerifyTab r={report} jobId={jobId} env={env} onUpdated={refresh} />}
+            </>)}
           </>
         )}
       </main>

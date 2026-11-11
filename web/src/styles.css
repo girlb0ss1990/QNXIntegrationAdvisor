@@ -64,6 +64,7 @@ input, select { font: inherit; color: var(--text); background: var(--panel); bor
   padding: 16px; margin: 16px 0 12px; align-items: flex-start; flex-wrap: wrap; }
 .score { text-align: center; min-width: 110px; cursor: help; }
 .score-num { font-size: 44px; font-weight: 750; line-height: 1; font-variant-numeric: tabular-nums; }
+.not-applicable .score-num { font-size: 32px; color: var(--muted, #6b7280); }
 .score-label { color: var(--muted); font-size: 12px; }
 .summary-body { flex: 1; min-width: 260px; }
 .summary h2 { margin: 0 0 4px; font-size: 16px; word-break: break-all; }

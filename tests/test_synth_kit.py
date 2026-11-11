@@ -94,3 +94,20 @@ def test_llm_enrichment_is_guarded(fake_index):
     assert any(i.evidence_locations and i.evidence_locations[0].line_start == 55 for i in out.pillar2_improvements)
     assert not any(i.evidence_locations and i.evidence_locations[0].file_path == "src/nope.c" for i in out.pillar2_improvements)
     assert out.unverified_claims_removed >= 4
+
+
+def test_repo_without_c_or_cpp_is_not_applicable(tmp_path):
+    """A JavaScript/TypeScript repo must not get a misleading 100/100 readiness score."""
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "app.js").write_text("console.log('hi');\n")
+    (tmp_path / "src" / "util.ts").write_text("export const x = 1;\n")
+    (tmp_path / "package.json").write_text("{}\n")
+    res = analyze(str(tmp_path), env=Environment(sdp=None, index=None), compile_kit_files=False)
+    r = res.report
+    assert r.applicable is False
+    assert r.readiness_score is None
+    assert r.kit == [] and r.findings == [] and r.pillar3_steps == []
+    assert r.languages == ["JavaScript", "TypeScript"]
+    assert "Not applicable" in r.summary
+    from advisor.export import to_markdown
+    assert "not applicable" in to_markdown(r)

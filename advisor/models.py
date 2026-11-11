@@ -105,7 +105,8 @@ class IntegrationReport(BaseModel):
     sdp_version: Optional[str] = None
     languages: list[str] = []
     build_systems: list[str] = []
-    readiness_score: int = Field(ge=0, le=100)
+    readiness_score: Optional[int] = Field(default=None, ge=0, le=100)   # None when not applicable
+    applicable: bool = True               # False: no C/C++ sources, nothing to port at the OS-API level
     summary: str
     findings: list[Finding] = []
     pillar1_features: list[FeatureRecommendation] = []
