@@ -23,7 +23,25 @@ Give it a GitHub/GitLab/Bitbucket URL or a local checkout and it produces:
 
 The tool advises and scaffolds. It does not promise a fully automatic port.
 
-## Quick start
+## Quick start (no setup knowledge needed)
+
+You need **Python 3.11 or newer** ([python.org](https://www.python.org/downloads/); on Windows tick
+"Add python.exe to PATH") and an internet connection the first time. Node.js is **not** needed:
+the web UI ships pre-built.
+
+1. Download the project: **Code → Download ZIP** on GitHub and unzip it, or `git clone` it.
+2. Start it:
+   - **Windows:** double-click **`start.bat`**.
+   - **Linux / WSL2 / macOS:** run `./start.sh` in the project folder.
+3. Your browser opens at **http://127.0.0.1:8765**. Paste a GitHub/GitLab/Bitbucket URL or a local
+   folder path and click **Analyze**, or click one of the sample reports.
+
+The first start takes a minute or two while it installs into a private `.venv` folder. Later starts
+take a few seconds. Keep the launcher window open while you use the tool; close it (or press Ctrl+C)
+to stop. With QNX SDP 8.0 installed, run `source ~/qnx800/qnxsdp-env.sh` before `./start.sh` and
+results are checked against your sysroot.
+
+### Developer setup
 
 ```bash
 git clone <this repo> && cd qnx-integration-advisor

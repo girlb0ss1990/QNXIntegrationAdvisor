@@ -180,7 +180,13 @@ def get_provider() -> Provider | None:
 
 def llm_configured() -> str | None:
     p = get_provider()
-    return f"{p.name}:{p.model}" if p else None
+    if p is None:
+        return None
+    import importlib.util
+    lib = "anthropic" if isinstance(p, ClaudeProvider) else "httpx"
+    if importlib.util.find_spec(lib) is None:
+        return None   # key present but the client library is not installed: AI mode would only fall back
+    return f"{p.name}:{p.model}"
 
 
 # ---------------------------------------------------------------- context building

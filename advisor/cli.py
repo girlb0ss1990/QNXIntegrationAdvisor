@@ -91,6 +91,36 @@ def cmd_serve(args) -> int:
     from .server import create_app
     if args.host not in ("127.0.0.1", "localhost", "::1"):
         print("warning: binding beyond localhost exposes clone/scan to your network", file=sys.stderr)
+    if args.open:
+        import threading
+        import time
+        import urllib.request
+        import webbrowser
+        browse_host = "127.0.0.1" if args.host in ("0.0.0.0", "::") else args.host
+        url = f"http://{browse_host}:{args.port}/"
+
+        def up() -> bool:
+            try:
+                with urllib.request.urlopen(url + "api/env", timeout=2) as r:
+                    return r.status == 200
+            except OSError:
+                return False
+
+        if up():   # already running (e.g. launcher double-clicked twice): just open a tab
+            print(f"QNX Integration Advisor is already running at {url}", file=sys.stderr)
+            webbrowser.open(url)
+            return 0
+
+        def open_when_ready() -> None:
+            for _ in range(60):
+                time.sleep(0.5)
+                if up():
+                    print(f"\n  QNX Integration Advisor is ready: {url}\n  Close this window to stop it.\n",
+                          file=sys.stderr)
+                    webbrowser.open(url)
+                    return
+
+        threading.Thread(target=open_when_ready, daemon=True).start()
     uvicorn.run(create_app(sdp=args.sdp, target=args.target), host=args.host, port=args.port, log_level="info")
     return 0
 
@@ -135,6 +165,7 @@ def main(argv: list[str] | None = None) -> int:
     s.add_argument("--host", default="127.0.0.1")
     s.add_argument("--port", type=int, default=8765)
     s.add_argument("--target", help="default QNX target user@host for live verification")
+    s.add_argument("--open", action="store_true", help="open the UI in the default browser once it is ready")
     s.set_defaults(fn=cmd_serve)
 
     args = p.parse_args(argv)

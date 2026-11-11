@@ -8,7 +8,6 @@ __pycache__/
 web/node_modules/
 web/dist/
 web/dist-static/
-advisor/static/
 # QNX SDP content must NEVER be committed (license, see spec section 4)
 .qnx-advisor/
 sysroot-index-*.json
