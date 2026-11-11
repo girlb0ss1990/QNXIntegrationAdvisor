@@ -83,3 +83,12 @@ def test_vendored_dirs_are_skipped(tmp_path: Path):
     sr = scan_repo(tmp_path, interesting_tokens(), config_globs())
     assert not sr.has_call("epoll_create1")
     assert "third_party" in sr.files.vendored
+
+
+def test_sparse_checkout_covers_scanner_inputs_and_tree_languages():
+    from advisor.ingest.git_ingest import _languages_from_names, sparse_patterns
+    pats = sparse_patterns()
+    for needed in ("*.c", "*.h", "*.cpp", "CMakeLists.txt", "Makefile", "*.service", "configure.ac"):
+        assert needed in pats
+    assert _languages_from_names(["a/b.ts", "x.java", "src/m.c", "inc/k.hpp", "README.md"]) == \
+        {"TypeScript", "Java", "C", "C++"}

@@ -94,6 +94,7 @@ def analyze(source: str, ref: str | None = None, arch: str = "x86_64", use_llm: 
         emit("clone", {"message": f"commit {repo.commit_sha[:12]}", "commit": repo.commit_sha})
 
         sr = scan_repo(repo.root, interesting_tokens(), config_globs())
+        sr.files.languages |= {lang for lang in repo.tree_languages if lang not in ("C", "C++")}
         emit("scan", {"message": f"scanned {len(sr.files.sources)} C/C++ files with {sr.parser}",
                       "files": len(sr.files.sources), "build_systems": sr.files.build_systems,
                       "roles": sr.roles, "vendored_skipped": sr.files.vendored})

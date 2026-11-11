@@ -10,7 +10,7 @@ import re
 import shutil
 import subprocess
 import tempfile
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from .limits import CLONE_TIMEOUT_S, MAX_REPO_BYTES, dir_size
@@ -33,6 +33,9 @@ class IngestedRepo:
     source: str
     commit_sha: str
     is_temp: bool
+    # Languages seen in the full file list. Remote clones only check out the files the scanner
+    # reads, so non-C/C++ languages are known from the git tree, not from the working copy.
+    tree_languages: set[str] = field(default_factory=set)
 
     def cleanup(self) -> None:
         if self.is_temp and self.root.exists():
@@ -67,6 +70,29 @@ def _git(args: list[str], cwd: Path | None = None, timeout: int = CLONE_TIMEOUT_
     return out.stdout.strip()
 
 
+def sparse_patterns() -> list[str]:
+    """gitignore-style patterns for every file the scanner and rules actually read."""
+    from ..rules import config_globs
+    from .classify import BUILD_FILES, C_EXT, CONFIG_PATTERNS, CPP_EXT
+    pats = [f"*{e}" for e in sorted(C_EXT | CPP_EXT)] + ["*.inl", "*.cmake", "compile_commands.json"]
+    pats += sorted(BUILD_FILES) + ["*.mk"] + CONFIG_PATTERNS + config_globs()
+    return list(dict.fromkeys(pats))
+
+
+def _languages_from_names(names: list[str]) -> set[str]:
+    from .classify import C_EXT, CPP_EXT, OTHER_LANG
+    langs: set[str] = set()
+    for n in names:
+        ext = os.path.splitext(n)[1].lower()
+        if ext in CPP_EXT:
+            langs.add("C++")
+        elif ext in C_EXT:
+            langs.add("C")
+        elif ext in OTHER_LANG:
+            langs.add(OTHER_LANG[ext])
+    return langs
+
+
 def ingest(source: str, ref: str | None = None) -> IngestedRepo:
     """Clone a URL (shallow) or open a local directory read-only."""
     p = Path(source).expanduser()
@@ -87,16 +113,23 @@ def ingest(source: str, ref: str | None = None) -> IngestedRepo:
         raise IngestError("Invalid ref")
     work = Path(tempfile.mkdtemp(prefix="qnx-advisor-"))
     dest = work / "repo"
-    args = ["clone", "--depth", "1", "--filter=blob:limit=2m", "--no-tags", "--single-branch"]
+    # 1. Commit + trees only (no file contents): seconds even for very large monorepos.
+    args = ["clone", "--depth", "1", "--filter=blob:none", "--no-checkout", "--no-tags", "--single-branch"]
     if ref:
         args += ["--branch", ref]
     args += ["--", clone_url, str(dest)]
     try:
         _git(args)
-        if dir_size(dest, stop_at=MAX_REPO_BYTES + 1) > MAX_REPO_BYTES:
-            raise IngestError(f"Repository exceeds the {MAX_REPO_BYTES // (1024 * 1024)} MB limit")
         sha = _git(["rev-parse", "HEAD"], cwd=dest, timeout=15)
+        names = _git(["ls-tree", "-r", "--name-only", "-z", "HEAD"], cwd=dest, timeout=30).split("\0")
+        # 2. Check out only the C/C++ sources, build files and configs the scanner reads; git
+        #    fetches just those blobs in one batch.
+        _git(["sparse-checkout", "set", "--no-cone", *sparse_patterns()], cwd=dest, timeout=30)
+        _git(["checkout", "--quiet", sha], cwd=dest)
+        if dir_size(dest, stop_at=MAX_REPO_BYTES + 1) > MAX_REPO_BYTES:
+            raise IngestError(f"Repository sources exceed the {MAX_REPO_BYTES // (1024 * 1024)} MB limit")
     except Exception:
         shutil.rmtree(work, ignore_errors=True)
         raise
-    return IngestedRepo(root=dest, source=source, commit_sha=sha, is_temp=True)
+    return IngestedRepo(root=dest, source=source, commit_sha=sha, is_temp=True,
+                        tree_languages=_languages_from_names([n for n in names if n]))
