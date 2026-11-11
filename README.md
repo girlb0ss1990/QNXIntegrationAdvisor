@@ -81,9 +81,17 @@ make demo               # scan -> kit -> verify on the VM -> docs/sample-verific
 
 ### AI-assisted mode (optional)
 
-Set one of `ANTHROPIC_API_KEY` (Claude, default model `claude-opus-5-5`, via the official
-`anthropic` SDK: `pip install -e ".[llm]"`), `GEMINI_API_KEY` or `OPENAI_API_KEY`, or pick with
-`QNX_ADVISOR_LLM=claude|gemini|openai`. Then tick **AI-assisted** in the UI or pass `--llm`.
+Set one API key, then tick **AI-assisted** in the UI (or pass `--llm`). When several keys are set,
+the first in this table wins; override with `QNX_ADVISOR_LLM=openrouter|claude|gemini|openai`.
+
+| Key | Provider | Default model | Change model with |
+| :--- | :--- | :--- | :--- |
+| `OPENROUTER_API_KEY` | [OpenRouter](https://openrouter.ai) (one key, many models) | `anthropic/claude-opus-5.5` | `QNX_ADVISOR_OPENROUTER_MODEL` (any OpenRouter model id, e.g. `google/gemini-2.5-pro`) |
+| `ANTHROPIC_API_KEY` | Anthropic, official `anthropic` SDK | `claude-opus-5-5` | `QNX_ADVISOR_MODEL` |
+| `GEMINI_API_KEY` | Google Gemini | `gemini-2.5-pro` | `QNX_ADVISOR_GEMINI_MODEL` |
+| `OPENAI_API_KEY` | OpenAI | `gpt-4.1` | `QNX_ADVISOR_OPENAI_MODEL` |
+
+The launchers (`start.bat` / `start.sh`) install the client libraries for all of them.
 Deterministic mode stays complete; the LLM only rewrites prose, adds diagrams and suggests extra
 improvements. If the provider fails or declines, the deterministic report is used unchanged.
 

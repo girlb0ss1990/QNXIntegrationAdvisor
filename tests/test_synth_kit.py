@@ -111,3 +111,35 @@ def test_repo_without_c_or_cpp_is_not_applicable(tmp_path):
     assert "Not applicable" in r.summary
     from advisor.export import to_markdown
     assert "not applicable" in to_markdown(r)
+
+
+def test_openrouter_provider_selection_and_request(monkeypatch):
+    import httpx
+
+    from advisor.synth import llm
+    for k in ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "GEMINI_API_KEY", "OPENAI_API_KEY", "QNX_ADVISOR_LLM",
+              "QNX_ADVISOR_OPENROUTER_MODEL"):
+        monkeypatch.delenv(k, raising=False)
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
+    monkeypatch.setenv("GEMINI_API_KEY", "other")          # OpenRouter wins when both are set
+    p = llm.get_provider()
+    assert isinstance(p, llm.OpenRouterProvider) and p.model == "anthropic/claude-opus-5.5"
+    assert llm.llm_configured() == "openrouter:anthropic/claude-opus-5.5"
+
+    seen = {}
+
+    def fake_post(url, headers, json, timeout):
+        seen.update(url=url, headers=headers, body=json)
+        return httpx.Response(200, json={"choices": [{"message": {"content": '{"ok": true}'}}]})
+
+    monkeypatch.setattr(httpx, "post", fake_post)
+    assert p._call("sys", "user") == '{"ok": true}'
+    assert seen["url"] == "https://openrouter.ai/api/v1/chat/completions"
+    assert seen["headers"]["Authorization"] == "Bearer test-key"
+    assert seen["body"]["model"] == "anthropic/claude-opus-5.5"
+    assert seen["body"]["response_format"] == {"type": "json_object"}
+
+    monkeypatch.setattr(httpx, "post", lambda *a, **k: httpx.Response(200, json={"error": {"message": "upstream"}}))
+    import pytest
+    with pytest.raises(llm.LLMError):
+        p._call("sys", "user")

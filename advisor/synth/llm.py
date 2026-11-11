@@ -1,6 +1,9 @@
 """Optional LLM synthesizer (mode M2). Provider-agnostic; every output goes through the guard.
 
-Providers (pick with QNX_ADVISOR_LLM=claude|gemini|openai, default: first with a key set):
+Providers (pick with QNX_ADVISOR_LLM=openrouter|claude|gemini|openai, default: first with a key set,
+in that order):
+  openrouter - REST chat completions via OpenRouter, any model id (OPENROUTER_API_KEY,
+               QNX_ADVISOR_OPENROUTER_MODEL, default anthropic/claude-opus-5.5)
   claude  - official `anthropic` SDK, structured output via messages.parse (ANTHROPIC_API_KEY or `ant auth login`)
   gemini  - REST generateContent with JSON output (GEMINI_API_KEY)
   openai  - REST chat completions with JSON output (OPENAI_API_KEY)
@@ -147,28 +150,62 @@ class GeminiProvider(_JsonRestProvider):
         return r.json()["candidates"][0]["content"]["parts"][0]["text"]
 
 
-class OpenAIProvider(_JsonRestProvider):
-    name = "openai"
+class _ChatCompletionsProvider(_JsonRestProvider):
+    """OpenAI-compatible /chat/completions endpoint (OpenAI itself, OpenRouter)."""
+    name = "chat"
+    url = ""
+    key_env = ""
+    label = ""
 
-    def __init__(self, model: str | None = None):
-        self.model = model or os.environ.get("QNX_ADVISOR_OPENAI_MODEL", "gpt-4.1")
+    def _headers(self) -> dict[str, str]:
+        return {"Authorization": f"Bearer {os.environ[self.key_env]}"}
 
     def _call(self, system: str, user: str) -> str:  # pragma: no cover - network
         import httpx
         r = httpx.post(
-            "https://api.openai.com/v1/chat/completions",
-            headers={"Authorization": f"Bearer {os.environ['OPENAI_API_KEY']}"},
+            self.url, headers=self._headers(),
             json={"model": self.model, "response_format": {"type": "json_object"},
                   "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}]},
             timeout=180,
         )
         if r.status_code != 200:
-            raise LLMError(f"OpenAI API error {r.status_code}")
-        return r.json()["choices"][0]["message"]["content"]
+            raise LLMError(f"{self.label} API error {r.status_code}")
+        body = r.json()
+        if "error" in body:   # OpenRouter can return 200 with an upstream provider error
+            raise LLMError(f"{self.label} error: {str(body['error'])[:200]}")
+        return body["choices"][0]["message"]["content"]
+
+
+class OpenAIProvider(_ChatCompletionsProvider):
+    name = "openai"
+    url = "https://api.openai.com/v1/chat/completions"
+    key_env = "OPENAI_API_KEY"
+    label = "OpenAI"
+
+    def __init__(self, model: str | None = None):
+        self.model = model or os.environ.get("QNX_ADVISOR_OPENAI_MODEL", "gpt-4.1")
+
+
+class OpenRouterProvider(_ChatCompletionsProvider):
+    """One key for many models. Model ids look like 'anthropic/claude-opus-5.5' or 'google/gemini-2.5-pro'."""
+    name = "openrouter"
+    url = "https://openrouter.ai/api/v1/chat/completions"
+    key_env = "OPENROUTER_API_KEY"
+    label = "OpenRouter"
+
+    def __init__(self, model: str | None = None):
+        self.model = model or os.environ.get("QNX_ADVISOR_OPENROUTER_MODEL", "anthropic/claude-opus-5.5")
+
+    def _headers(self) -> dict[str, str]:
+        # Optional attribution headers OpenRouter documents; they identify the app, not the user.
+        return {**super()._headers(), "X-Title": "QNX Integration Advisor"}
 
 
 def get_provider() -> Provider | None:
     choice = os.environ.get("QNX_ADVISOR_LLM", "").lower()
+    # An OpenRouter key is the most explicit choice (it exists only to route models), so it goes first.
+    if choice == "openrouter" or (not choice and os.environ.get("OPENROUTER_API_KEY")):
+        return OpenRouterProvider()
     if choice == "claude" or (not choice and (os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_AUTH_TOKEN"))):
         return ClaudeProvider()
     if choice == "gemini" or (not choice and os.environ.get("GEMINI_API_KEY")):
