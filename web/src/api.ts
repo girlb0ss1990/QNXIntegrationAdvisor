@@ -83,6 +83,10 @@ export async function clearLlm(): Promise<LlmStatus> {
   return json(await fetch("api/settings/llm", { method: "DELETE" }));
 }
 
+export async function importWslIndex(): Promise<{ symbols: number; sdp_version: string }> {
+  return json(await fetch("api/setup/import-wsl-index", { method: "POST" }));
+}
+
 export async function testLlm(): Promise<LlmTest> {
   return json(await fetch("api/settings/llm/test", { method: "POST" }));
 }

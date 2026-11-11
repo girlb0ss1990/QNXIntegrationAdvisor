@@ -260,8 +260,65 @@ def _ping(provider: str, model: str) -> None:  # pragma: no cover - network
 Status = Literal["ok", "warn", "missing", "optional"]
 
 
-def _check(id: str, label: str, status: Status, detail: str, fix: str = "", required: bool = False) -> dict:
-    return {"id": id, "label": label, "status": status, "detail": detail, "fix": fix, "required": required}
+def _check(id: str, label: str, status: Status, detail: str, fix: str = "", required: bool = False,
+           action: str = "") -> dict:
+    return {"id": id, "label": label, "status": status, "detail": detail, "fix": fix, "required": required,
+            "action": action}
+
+
+# ---------------------------------------------------------------- QNX SDP installed inside WSL (Windows hosts)
+_WSL_INDEX_RE = r"^/(home/[A-Za-z0-9._-]+|root)/\.qnx-advisor/sysroot-index-[A-Za-z0-9._-]+\.json$"
+_WSL_SDP_RE = r"^/(home/[A-Za-z0-9._-]+|root)/qnx[0-9]+$"
+
+
+def _wsl(script: str, timeout: int = 20) -> Optional[bytes]:
+    """Run a fixed shell snippet in the default WSL distro. Output from Linux programs is UTF-8."""
+    if platform.system() != "Windows" or not shutil.which("wsl.exe"):
+        return None
+    try:
+        r = subprocess.run(["wsl.exe", "-e", "sh", "-c", script], capture_output=True, timeout=timeout)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return r.stdout
+
+
+def find_wsl_sdp() -> Optional[dict]:
+    """On Windows: is a QNX SDP (and an advisor library index built from it) installed inside WSL?"""
+    import re
+    out = _wsl("ls -d /home/*/qnx[0-9]* /root/qnx[0-9]* 2>/dev/null; "
+               "ls -t /home/*/.qnx-advisor/sysroot-index-*.json /root/.qnx-advisor/sysroot-index-*.json 2>/dev/null")
+    if not out:
+        return None
+    lines = [ln.strip() for ln in out.decode("utf-8", "replace").splitlines() if ln.strip()]
+    sdps = [ln for ln in lines if re.match(_WSL_SDP_RE, ln)]
+    idxs = [ln for ln in lines if re.match(_WSL_INDEX_RE, ln)]
+    if not sdps and not idxs:
+        return None
+    return {"sdp": sdps[0] if sdps else None, "index": idxs[0] if idxs else None}
+
+
+def import_wsl_index() -> dict:
+    """Copy the library index (names of QNX headers/functions only, no QNX files) from WSL to this machine."""
+    import re
+
+    from .sdp.indexer import SysrootIndex, save_index
+    found = find_wsl_sdp()
+    if not found or not found.get("index"):
+        sdp = found.get("sdp") if found else None
+        if sdp:
+            raise SettingsError(f"Found the QNX SDP in WSL ({sdp}) but it has not been indexed yet. In WSL run: "
+                                f"source {sdp}/qnxsdp-env.sh && cd ~/qnx-integration-advisor && "
+                                ".venv/bin/qnx-advisor index-sdp  then press the button again.")
+        raise SettingsError("No QNX SDP was found inside WSL.")
+    path = found["index"]
+    assert re.match(_WSL_INDEX_RE, path)              # fixed shape: no shell metacharacters reach sh -c
+    raw = _wsl(f"cat '{path}'", timeout=60)
+    try:
+        idx = SysrootIndex.from_json(json.loads((raw or b"").decode("utf-8")))
+    except (ValueError, KeyError, TypeError) as e:
+        raise SettingsError("The index in WSL could not be read. Rebuild it there with qnx-advisor index-sdp.") from e
+    saved = save_index(idx)
+    return {"path": str(saved), **idx.summary()}
 
 
 def setup_checks(sdp_path: Optional[str] = None) -> list[dict]:
@@ -312,6 +369,8 @@ def setup_checks(sdp_path: Optional[str] = None) -> list[dict]:
                                  "Press Test connection below to confirm it works."))
 
     env = Environment.detect(sdp_path)
+    if not env.sdp and on_windows:
+        return checks + _windows_sdp_checks(env)
     if env.sdp:
         from .sdp.toolchain import qcc_version
         checks.append(_check("sdp", "QNX SDP 8.0 (optional)", "ok",
@@ -332,3 +391,34 @@ def setup_checks(sdp_path: Optional[str] = None) -> list[dict]:
                              "Not found. The advisor still works, but results are marked “unverified against "
                              "sysroot” and generated code is not compile-checked.", fix))
     return checks
+
+
+def _windows_sdp_checks(env) -> list[dict]:
+    wsl_start = "In WSL run: cd ~/qnx-integration-advisor && source ~/qnx800/qnxsdp-env.sh && ./start.sh"
+    if env.index:
+        s = env.index.summary()
+        return [
+            _check("index", "QNX library index", "ok",
+                   f"{s['symbols']} functions from your QNX SDP {s['sdp_version']}: results are checked against "
+                   "your SDP."),
+            _check("sdp", "QNX compiler (optional)", "optional",
+                   "The QNX compiler (qcc) only runs on Linux, so on Windows generated code is not compile-checked. "
+                   "Everything else is verified.",
+                   "For compile checks, start the advisor inside WSL. " + wsl_start),
+        ]
+    found = find_wsl_sdp()
+    if found and found.get("index"):
+        return [_check("sdp", "QNX SDP 8.0", "warn",
+                       f"Your QNX SDP is installed inside WSL ({found['sdp'] or 'Linux'}), which this Windows app "
+                       "cannot see directly. Its library index is ready to import.",
+                       "Click the button to import it (names of QNX functions only; takes a few seconds).",
+                       action="import_wsl_index")]
+    if found and found.get("sdp"):
+        return [_check("sdp", "QNX SDP 8.0", "warn",
+                       f"Your QNX SDP is installed inside WSL ({found['sdp']}) but has not been indexed yet.",
+                       f"In WSL run: source {found['sdp']}/qnxsdp-env.sh && cd ~/qnx-integration-advisor && "
+                       ".venv/bin/qnx-advisor index-sdp   then press Check again here.")]
+    return [_check("sdp", "QNX SDP 8.0 (optional)", "optional",
+                   "Not found. The advisor still works, but results are marked \u201cunverified against sysroot\u201d "
+                   "and generated code is not compile-checked.",
+                   "The QNX SDP runs on Linux. Install it in WSL Ubuntu from myQNX, then " + wsl_start)]

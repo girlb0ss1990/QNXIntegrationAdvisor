@@ -46,7 +46,7 @@ export interface JobEvent { event: string; data: Record<string, unknown> }
 
 // ----- Setup page
 export interface SetupCheck {
-  id: string; label: string; status: "ok" | "warn" | "missing" | "optional"; detail: string; fix: string; required: boolean;
+  id: string; label: string; status: "ok" | "warn" | "missing" | "optional"; detail: string; fix: string; required: boolean; action?: string;
 }
 export interface ProviderInfo {
   id: string; label: string; key_env: string; model_env: string; default_model: string; key_url: string; key_hint: string; blurb: string;

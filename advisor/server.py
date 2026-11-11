@@ -292,6 +292,14 @@ def create_app(sdp: str | None = None, target: str | None = None) -> FastAPI:
         clear_llm()
         return llm_status()
 
+    @app.post("/api/setup/import-wsl-index")
+    def api_import_wsl_index():
+        from .settings import SettingsError, import_wsl_index
+        try:
+            return import_wsl_index()
+        except SettingsError as e:
+            raise HTTPException(400, str(e)) from e
+
     @app.post("/api/settings/llm/test")
     def api_test_llm():
         from .settings import test_llm

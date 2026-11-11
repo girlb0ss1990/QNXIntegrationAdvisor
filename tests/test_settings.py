@@ -57,3 +57,28 @@ def test_setup_api_never_returns_full_key_and_blocks_cross_site(clean):
                   headers={"Origin": "https://evil.example"})
     assert evil.status_code == 403
     assert c.delete("/api/settings/llm", headers={"Origin": "http://127.0.0.1:8765"}).status_code == 200
+
+
+def test_import_index_from_wsl(clean, monkeypatch, fake_index):
+    import json as _json
+
+    from advisor.sdp import indexer
+    monkeypatch.setattr(indexer, "INDEX_DIR", clean / "idx")
+    listing = b"/home/dev/qnx800\n/home/dev/.qnx-advisor/sysroot-index-8.0.3.json\n"
+    payload = _json.dumps(fake_index.to_json()).encode()
+    calls = []
+
+    def fake_wsl(script, timeout=20):
+        calls.append(script)
+        return payload if script.startswith("cat ") else listing
+
+    monkeypatch.setattr(settings, "_wsl", fake_wsl)
+    assert settings.find_wsl_sdp() == {"sdp": "/home/dev/qnx800",
+                                       "index": "/home/dev/.qnx-advisor/sysroot-index-8.0.3.json"}
+    out = settings.import_wsl_index()
+    assert out["sdp_version"] == "8.0.3" and (clean / "idx" / "sysroot-index-8.0.3.json").exists()
+    assert calls[-1] == "cat '/home/dev/.qnx-advisor/sysroot-index-8.0.3.json'"
+
+    # paths that do not match the fixed shape are ignored, so nothing odd ever reaches `sh -c`
+    monkeypatch.setattr(settings, "_wsl", lambda s, timeout=20: b"/home/x/.qnx-advisor/sysroot-index-1;rm -rf ~.json\n")
+    assert settings.find_wsl_sdp() is None

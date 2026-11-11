@@ -21,7 +21,7 @@ function Header({ env, onSetup, inSetup }: { env: EnvInfo | null; onSetup: () =>
           <div className="mode" title={env.mode_reason}>
             <span className={`mode-pill mode-${env.mode}`}>{env.mode}</span>
             <span className="mode-reason">{MODE_NAME[env.mode] ?? ""}
-              {env.mode !== "M0" && <> · AI {env.llm ? "on" : "off"} · QNX SDP {env.sdp ? "found" : "not found"}</>}</span>
+              {env.mode !== "M0" && <> · AI {env.llm ? "on" : "off"} · QNX {env.sdp ? "SDP found" : env.index ? "library index ready" : "SDP not found"}</>}</span>
           </div>
         )}
         {!STATIC_VIEWER && (
@@ -138,7 +138,7 @@ export default function App() {
         )}
         <p className="hint">
           The repository is cloned and read, never built or run on this machine.
-          {env && !env.sdp && " No QNX SDP found: results are labelled unverified against a sysroot."}
+          {env && !env.index && " No QNX SDP found: results are labelled unverified against a sysroot (see Setup)."}
         </p>
         {samples.length > 0 && (
           <div className="samples">Sample reports:

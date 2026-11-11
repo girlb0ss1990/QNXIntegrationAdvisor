@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { clearLlm, getSetup, saveLlm, testLlm } from "../api";
+import { clearLlm, getSetup, importWslIndex, saveLlm, testLlm } from "../api";
 import type { LlmTest, SetupCheck, SetupInfo } from "../types";
 
 const ICON: Record<SetupCheck["status"], string> = { ok: "✓", warn: "!", missing: "✕", optional: "○" };
@@ -7,7 +7,9 @@ const STATUS_TEXT: Record<SetupCheck["status"], string> = {
   ok: "Ready", warn: "Needs attention", missing: "Not working", optional: "Optional · not set up",
 };
 
-function Checklist({ checks }: { checks: SetupCheck[] }) {
+function Checklist({ checks, onAction, actionBusy, actionMsg }: {
+  checks: SetupCheck[]; onAction: (a: string) => void; actionBusy: boolean; actionMsg: string | null;
+}) {
   return (
     <ul className="checklist">
       {checks.map((c) => (
@@ -20,6 +22,13 @@ function Checklist({ checks }: { checks: SetupCheck[] }) {
             </div>
             <div className="check-detail">{c.detail}</div>
             {c.fix && <div className="check-fix"><span className="label-inline">How to fix:</span> {c.fix}</div>}
+            {c.action === "import_wsl_index" && (
+              <div className="row-gap">
+                <button className="btn primary" disabled={actionBusy} onClick={() => onAction(c.action!)}>
+                  {actionBusy ? "Importing…" : "Use my WSL QNX SDP"}</button>
+              </div>
+            )}
+            {c.id === "sdp" && actionMsg && <div className="error">{actionMsg}</div>}
           </div>
         </li>
       ))}
@@ -47,6 +56,8 @@ export function SetupPage({ onChanged, onClose }: { onChanged: () => void; onClo
   const [busy, setBusy] = useState<"" | "save" | "test" | "remove">("");
   const [formError, setFormError] = useState<string | null>(null);
   const [test, setTest] = useState<LlmTest | null>(null);
+  const [actionBusy, setActionBusy] = useState(false);
+  const [actionMsg, setActionMsg] = useState<string | null>(null);
 
   const reload = async () => {
     try {
@@ -86,6 +97,13 @@ export function SetupPage({ onChanged, onClose }: { onChanged: () => void; onClo
     }
   };
 
+  const runAction = async (a: string) => {
+    if (a !== "import_wsl_index") return;
+    setActionBusy(true); setActionMsg(null);
+    try { await importWslIndex(); } catch (e) { setActionMsg(String(e).replace(/^Error: \d+: /, "")); }
+    setActionBusy(false); await reload(); onChanged();
+  };
+
   const remove = async () => {
     setBusy("remove");
     try { await clearLlm(); setTest(null); setModel(""); } catch (e) { setFormError(String(e)); }
@@ -107,7 +125,7 @@ export function SetupPage({ onChanged, onClose }: { onChanged: () => void; onClo
       </div>
 
       {loadError && <div className="error">Could not load the setup status: {loadError}</div>}
-      {info ? <Checklist checks={info.checks} /> : !loadError && <p className="muted">Checking…</p>}
+      {info ? <Checklist checks={info.checks} onAction={runAction} actionBusy={actionBusy} actionMsg={actionMsg} /> : !loadError && <p className="muted">Checking…</p>}
 
       <div className="ai-card">
         <h3>AI assistant <span className="badge">optional</span></h3>
