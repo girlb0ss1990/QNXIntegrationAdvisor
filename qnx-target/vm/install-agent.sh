@@ -7,9 +7,12 @@ set -eu
 IP=${1:?usage: install-agent.sh <ip> [x86_64|aarch64le]}
 ARCH=${2:-x86_64}
 HERE=$(cd "$(dirname "$0")/.." && pwd)
+ssh-keygen -R "$IP" >/dev/null 2>&1 || true   # a rebuilt VM has a new host key
 SSH="ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new"
 
 make -C "$HERE" ARCH="$ARCH"
+# A running executable cannot be overwritten: stop the old agent first (ignored on a fresh VM).
+$SSH root@"$IP" 'slay -f qnx-advisor-agent' >/dev/null 2>&1 || true
 scp -o StrictHostKeyChecking=accept-new "$HERE/build/$ARCH/qnx-advisor-agent" "$HERE/build/$ARCH/advisorctl" \
     qnxuser@"$IP":/data/home/qnxuser/
 

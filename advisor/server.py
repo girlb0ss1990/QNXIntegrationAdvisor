@@ -159,7 +159,8 @@ def create_app(sdp: str | None = None, target: str | None = None) -> FastAPI:
 
     @app.get("/api/env")
     def api_env(target: Optional[str] = None):
-        return detect_env(sdp, target or state["target"])
+        from .qnxvm import saved_target
+        return detect_env(sdp, target or state["target"] or saved_target())
 
     @app.post("/api/jobs")
     def api_create_job(req: JobRequest):
@@ -244,7 +245,8 @@ def create_app(sdp: str | None = None, target: str | None = None) -> FastAPI:
         env = Environment.detect(sdp)
         if env.sdp is None:
             raise HTTPException(409, "live verification needs a local QNX SDP 8.0")
-        spec = req.target or state["target"]
+        from .qnxvm import saved_target
+        spec = req.target or state["target"] or saved_target()
         if not spec:
             raise HTTPException(400, "no target configured (user@host)")
         try:
@@ -299,6 +301,19 @@ def create_app(sdp: str | None = None, target: str | None = None) -> FastAPI:
             return import_wsl_index()
         except SettingsError as e:
             raise HTTPException(400, str(e)) from e
+
+    @app.post("/api/setup/start-vm")
+    def api_start_vm():
+        from . import qnxvm
+        st = qnxvm.start_vm()
+        if st["state"] == "error":
+            raise HTTPException(409, st["log"])
+        return st
+
+    @app.get("/api/setup/vm")
+    def api_vm():
+        from . import qnxvm
+        return {**qnxvm.status(), "target": qnxvm.saved_target()}
 
     @app.post("/api/settings/llm/test")
     def api_test_llm():

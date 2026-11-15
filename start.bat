@@ -49,11 +49,32 @@ if not exist "advisor\static\index.html" (
     if not exist "advisor\static\index.html" goto :fail
 )
 
-rem ---- 4. Run
+rem ---- 4. QNX mode: with the QNX SDP installed in WSL, run there (qcc builds + the QNX virtual machine)
+rem      set QNX_MODE=0 to always use Windows mode, QNX_MODE=1 to skip the question.
+if not defined QNX_MODE (
+    ".venv\Scripts\python.exe" -m advisor.cli qnx-mode --detect >nul 2>&1
+    if !errorlevel! equ 0 (
+        echo   Your QNX SDP was found inside WSL.
+        echo   QNX mode builds the generated code with qcc and runs it on a QNX 8.0 virtual machine.
+        choice /c YN /t 20 /d Y /m "  Start in QNX mode"
+        if !errorlevel! equ 1 (set "QNX_MODE=1") else (set "QNX_MODE=0")
+    )
+)
+if "!QNX_MODE!"=="1" (
+    echo.
+    ".venv\Scripts\python.exe" -m advisor.cli qnx-mode --port %PORT%
+    if !errorlevel! neq 3 goto :stopped
+    echo.
+    echo   QNX mode could not start - see the messages above. Continuing in Windows mode.
+    echo.
+)
+
+rem ---- 5. Run (Windows mode)
 echo   Starting on http://127.0.0.1:%PORT% - your browser will open shortly.
 echo   Keep this window open while you use the tool. Close it to stop.
 echo.
 ".venv\Scripts\python.exe" -m advisor.cli serve --port %PORT% --open
+:stopped
 echo.
 echo   The advisor has stopped.
 pause

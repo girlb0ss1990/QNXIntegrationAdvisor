@@ -4,7 +4,9 @@
  *
  *   bench_ipc():   MsgSend round trips between two threads over a private channel
  *   bench_timer(): a SCHED_FIFO thread waits on a periodic pulse timer; lateness of each
- *                  wake-up against the ideal schedule, optionally with low-priority CPU burners
+ *                  wake-up relative to one period after the previous wake-up (per-period
+ *                  jitter, so one late wake-up is counted once instead of shifting every later
+ *                  sample), optionally with low-priority CPU burners
  *
  * Numbers from a QEMU target include virtualization overhead and are indicative only.
  * Apache-2.0.
@@ -181,12 +183,12 @@ static void *timer_thread(void *arg)
     if (want > MAX_SAMPLES)
         want = MAX_SAMPLES;
     uint64_t period_cycles = (g_cycles_per_sec * (uint64_t)b->period_us) / 1000000ULL;
-    uint64_t t_first = 0;
+    uint64_t t_prev = 0;
 
     if (timer_settime(tid, 0, &its, NULL) == -1) {
         job->err = errno;
     } else {
-        /* The first expiry defines the schedule; lateness of later ones is measured against it. */
+        /* Each wake-up is compared with one period after the previous one. */
         for (uint32_t k = 0; k <= want; k++) {
             if (MsgReceivePulse(chid, &p, sizeof p, NULL) == -1) {
                 job->err = errno;
@@ -194,11 +196,12 @@ static void *timer_thread(void *arg)
             }
             uint64_t now = ClockCycles();
             if (k == 0) {
-                t_first = now;
+                t_prev = now;
                 continue;
             }
-            uint64_t ideal = t_first + period_cycles * k;
+            uint64_t ideal = t_prev + period_cycles;
             samples[k - 1] = now > ideal ? now - ideal : 0;
+            t_prev = now;
             job->n = k;
         }
     }

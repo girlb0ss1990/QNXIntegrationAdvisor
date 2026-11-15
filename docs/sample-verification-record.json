@@ -1,25 +1,27 @@
 {
-  "id": "vr-fb18608572",
+  "id": "vr-52f0d2c6bc",
   "binary_sha256": "c0697d29fe28b3bd9d1c9eaab8b9e5857370920045ab2f4c0330b2c167479f8c",
   "target_uname": "QNX noname 8.0.0 2026/06/05-16:26:03EDT x86pc x86_64",
   "sdp_version": "8.0.0",
   "target_kind": "qemu_x86_64",
   "exit_status": -1,
   "metrics": {
-    "resmgr_ready_ms": 5.312,
-    "verify_wall_ms": 1009.465,
+    "resmgr_ready_ms": 11.711,
+    "verify_wall_ms": 1017.542,
+    "verify_path_appeared": 1.0,
+    "verify_signal": 9.0,
     "compat_selftest_exit": 0.0,
-    "ipc_rtt_min_ns": 9253.0,
-    "ipc_rtt_p50_ns": 34063.0,
-    "ipc_rtt_p99_ns": 137421.0,
-    "ipc_rtt_max_ns": 282319.0,
-    "timer_late_p50_us_idle": 4844.845,
-    "timer_late_p99_us_idle": 5209.59,
-    "timer_late_max_us_idle": 5538.294,
-    "timer_late_p50_us_loaded": 0.0,
-    "timer_late_p99_us_loaded": 149.39,
-    "timer_late_max_us_loaded": 361.098
+    "ipc_rtt_min_ns": 12911.0,
+    "ipc_rtt_p50_ns": 16749.0,
+    "ipc_rtt_p99_ns": 1423694.0,
+    "ipc_rtt_max_ns": 5326456.0,
+    "timer_late_p50_us_idle": 586.543,
+    "timer_late_p99_us_idle": 3569.467,
+    "timer_late_max_us_idle": 8990.832,
+    "timer_late_p50_us_loaded": 52.398,
+    "timer_late_p99_us_loaded": 1646.398,
+    "timer_late_max_us_loaded": 4237.09
   },
-  "timestamp_utc": "2026-11-11T20:52:06Z",
-  "note": "QEMU, indicative only"
+  "timestamp_utc": "2026-11-15T20:55:19Z",
+  "note": "QEMU, indicative only; verify ok: /dev/motor_pid appeared, then stopped by signal 9 (expected)"
 }

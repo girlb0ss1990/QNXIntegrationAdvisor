@@ -87,6 +87,10 @@ export async function importWslIndex(): Promise<{ symbols: number; sdp_version: 
   return json(await fetch("api/setup/import-wsl-index", { method: "POST" }));
 }
 
+export async function startVm(): Promise<{ state: string; log: string }> {
+  return json(await fetch("api/setup/start-vm", { method: "POST" }));
+}
+
 export async function testLlm(): Promise<LlmTest> {
   return json(await fetch("api/settings/llm/test", { method: "POST" }));
 }

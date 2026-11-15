@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { clearLlm, getSetup, importWslIndex, saveLlm, testLlm } from "../api";
+import { clearLlm, getSetup, importWslIndex, saveLlm, startVm, testLlm } from "../api";
 import type { LlmTest, SetupCheck, SetupInfo } from "../types";
 
 const ICON: Record<SetupCheck["status"], string> = { ok: "✓", warn: "!", missing: "✕", optional: "○" };
@@ -28,7 +28,16 @@ function Checklist({ checks, onAction, actionBusy, actionMsg }: {
                   {actionBusy ? "Importing…" : "Use my WSL QNX SDP"}</button>
               </div>
             )}
-            {c.id === "sdp" && actionMsg && <div className="error">{actionMsg}</div>}
+            {c.action === "start_vm" && (
+              <div className="row-gap">
+                <button className="btn primary" disabled={actionBusy} onClick={() => onAction(c.action!)}>
+                  {actionBusy ? "Starting…" : "Start QNX virtual machine"}</button>
+              </div>
+            )}
+            {c.action === "vm_busy" && (
+              <div className="row-gap"><button className="btn" disabled>Starting the QNX virtual machine…</button></div>
+            )}
+            {(c.id === "sdp" || c.id === "target") && actionMsg && c.action && <div className="error">{actionMsg}</div>}
           </div>
         </li>
       ))}
@@ -72,6 +81,13 @@ export function SetupPage({ onChanged, onClose }: { onChanged: () => void; onClo
     } catch (e) { setLoadError(String(e)); }
   };
   useEffect(() => { reload(); }, []);
+  // While the QNX VM is booting, refresh the checklist every few seconds until it is ready.
+  const vmBusy = !!info?.checks.some((c) => c.action === "vm_busy");
+  useEffect(() => {
+    if (!vmBusy) return;
+    const t = setTimeout(async () => { await reload(); onChanged(); }, 3000);
+    return () => clearTimeout(t);
+  }, [info, vmBusy]);
 
   const active = info?.llm.active ?? null;
   const p = info?.llm.providers.find((x) => x.id === provider);
@@ -98,9 +114,10 @@ export function SetupPage({ onChanged, onClose }: { onChanged: () => void; onClo
   };
 
   const runAction = async (a: string) => {
-    if (a !== "import_wsl_index") return;
+    if (a !== "import_wsl_index" && a !== "start_vm") return;
     setActionBusy(true); setActionMsg(null);
-    try { await importWslIndex(); } catch (e) { setActionMsg(String(e).replace(/^Error: \d+: /, "")); }
+    try { await (a === "start_vm" ? startVm() : importWslIndex()); }
+    catch (e) { setActionMsg(String(e).replace(/^Error: \d+: /, "")); }
     setActionBusy(false); await reload(); onChanged();
   };
 

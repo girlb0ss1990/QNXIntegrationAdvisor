@@ -3,7 +3,7 @@
 PY      ?= .venv/bin/python
 PIP     ?= .venv/bin/pip
 ADVISOR ?= .venv/bin/qnx-advisor
-TARGET  ?= qnxuser@$(shell cat qnx-target/vm/local/ip 2>/dev/null || echo 10.0.2.15)
+TARGET  ?= qnxuser@$(shell cat $(HOME)/.qnx-advisor/vm/ip 2>/dev/null || cat qnx-target/vm/local/ip 2>/dev/null || echo 10.0.2.15)
 
 .PHONY: setup web index-sdp rules-validate qnx-check agent vm target-test test lint eval samples static demo serve env-info clean
 

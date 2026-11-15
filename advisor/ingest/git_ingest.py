@@ -93,7 +93,16 @@ def _languages_from_names(names: list[str]) -> set[str]:
     return langs
 
 
+def windows_path_in_wsl(source: str) -> str:
+    r"""QNX mode runs the server in WSL: accept a pasted Windows folder such as C:\src\app as /mnt/c/src/app."""
+    m = re.match(r"^([A-Za-z]):[\\/](.*)$", source.strip())
+    if m and os.name != "nt" and Path(f"/mnt/{m.group(1).lower()}").is_dir():
+        return f"/mnt/{m.group(1).lower()}/" + m.group(2).replace("\\", "/")
+    return source
+
+
 def ingest(source: str, ref: str | None = None) -> IngestedRepo:
+    source = windows_path_in_wsl(source)
     """Clone a URL (shallow) or open a local directory read-only."""
     p = Path(source).expanduser()
     if not source.startswith("https://") and p.is_dir():

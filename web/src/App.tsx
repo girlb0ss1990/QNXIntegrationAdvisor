@@ -165,7 +165,7 @@ export default function App() {
             {tab === "audit" && <AuditTab r={report} />}
             {tab === "pillars" && <PillarsTab r={report} />}
             {tab === "kit" && <KitTab r={report} kitUrl={jobId ? `api/jobs/${jobId}/kit.zip` : null} />}
-            {tab === "verify" && <VerifyTab r={report} jobId={jobId} env={env} onUpdated={refresh} />}
+            {tab === "verify" && <VerifyTab r={report} jobId={jobId} env={env} onUpdated={refresh} onOpenSetup={() => setView("setup")} />}
             </>)}
           </>
         )}

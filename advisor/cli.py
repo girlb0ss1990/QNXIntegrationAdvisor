@@ -87,6 +87,13 @@ def cmd_verify(args) -> int:
     return 0
 
 
+def cmd_qnx_mode(args) -> int:
+    from . import wsl_launch
+    if args.detect:
+        return 0 if wsl_launch.sdp_user() else 1
+    return wsl_launch.run(port=args.port, start_vm=not args.no_vm)
+
+
 def cmd_serve(args) -> int:
     import uvicorn
 
@@ -123,6 +130,9 @@ def cmd_serve(args) -> int:
                     return
 
         threading.Thread(target=open_when_ready, daemon=True).start()
+    if not args.target:
+        from .qnxvm import saved_target
+        args.target = saved_target()   # the built-in QEMU target, if setup-vm.sh has started it before
     uvicorn.run(create_app(sdp=args.sdp, target=args.target), host=args.host, port=args.port, log_level="info")
     return 0
 
@@ -169,6 +179,12 @@ def main(argv: list[str] | None = None) -> int:
     s.add_argument("--target", help="default QNX target user@host for live verification")
     s.add_argument("--open", action="store_true", help="open the UI in the default browser once it is ready")
     s.set_defaults(fn=cmd_serve)
+
+    s = sub.add_parser("qnx-mode", help="Windows: run the advisor inside WSL with the QNX SDP and QEMU target")
+    s.add_argument("--port", type=int, default=8765)
+    s.add_argument("--detect", action="store_true", help="exit 0 if a QNX SDP is installed in WSL")
+    s.add_argument("--no-vm", action="store_true", help="do not boot the QNX virtual machine")
+    s.set_defaults(fn=cmd_qnx_mode)
 
     args = p.parse_args(argv)
     from .settings import apply_settings

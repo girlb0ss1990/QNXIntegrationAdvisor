@@ -263,3 +263,10 @@ input, select { font: inherit; color: var(--text); background: var(--panel); bor
 .caveats { background: var(--panel-2); border: 1px solid var(--border); border-radius: 12px; padding: 12px 16px; }
 .caveats h4 { margin: 0 0 6px; }
 .caveats ul { margin: 0; padding-left: 18px; }
+
+/* ----- Verify outcome checklist */
+.outcome { list-style: none; padding: 0; margin: 8px 0 12px; display: grid; gap: 4px; }
+.outcome li { display: flex; gap: 8px; }
+.outcome li span { font-weight: 700; width: 1em; }
+.outcome li.ok span { color: var(--ok); }
+.outcome li.bad span { color: var(--bad, #c0392b); }

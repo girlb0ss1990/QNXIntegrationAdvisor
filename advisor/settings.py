@@ -17,7 +17,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal, Optional
 
-SETTINGS_PATH = Path.home() / ".qnx-advisor" / "settings.json"
+# QNX_ADVISOR_SETTINGS: Windows QNX mode points the WSL server at the Windows file, so one saved key works in both.
+SETTINGS_PATH = Path(os.environ.get("QNX_ADVISOR_SETTINGS") or Path.home() / ".qnx-advisor" / "settings.json")
 
 
 @dataclass(frozen=True)
@@ -383,6 +384,7 @@ def setup_checks(sdp_path: Optional[str] = None) -> list[dict]:
             checks.append(_check("index", "QNX library index (optional)", "warn",
                                  "The SDP is found but not indexed yet, so results are still unverified.",
                                  "Run: qnx-advisor index-sdp   (or: make index-sdp). It takes about a minute."))
+        checks.append(target_check())
     else:
         fix = ("The QNX SDP runs on Linux. Install it in WSL Ubuntu, then start the advisor there with: "
                "source ~/qnx800/qnxsdp-env.sh && ./start.sh" if on_windows else
@@ -393,8 +395,42 @@ def setup_checks(sdp_path: Optional[str] = None) -> list[dict]:
     return checks
 
 
+def target_check() -> dict:
+    """Is a QNX 8.0 target running that generated code can be deployed to and measured on?"""
+    from . import qnxvm
+    from .verify.deploy import DeployError, Target, reachable
+    label = "QNX 8.0 target (optional)"
+    job = qnxvm.status()
+    if job["state"] == "starting":
+        last = [ln for ln in job["log"].splitlines() if ln.strip()][-1:] or ["starting"]
+        return _check("target", label, "warn", f"Starting the QNX virtual machine… ({last[0][:120]})",
+                      "This takes about a minute the first time. The page refreshes by itself.", action="vm_busy")
+    spec = qnxvm.saved_target()
+    if spec:
+        try:
+            ok, detail = reachable(Target(spec))
+        except DeployError as e:
+            ok, detail = False, str(e)
+        if ok:
+            return _check("target", label, "ok",
+                          f"QNX virtual machine running at {spec} ({detail}). Open a report's Verify tab and press "
+                          "Run on QNX to build, deploy and measure the generated code there.")
+    can, why = qnxvm.can_start()
+    if job["state"] == "error":
+        return _check("target", label, "missing", "The QNX virtual machine did not start: " +
+                      job["log"].strip().splitlines()[-1][:300] if job["log"].strip() else "unknown error",
+                      "Fix the problem above and press the button again.", action="start_vm" if can else "")
+    if not can:
+        return _check("target", label, "optional", "No QNX target is running.", why[:1].upper() + why[1:] + ".")
+    return _check("target", label, "optional",
+                  "No QNX target is running. Start the built-in QNX 8.0 virtual machine (QEMU, created from your own "
+                  "SDP) to compile, run and measure the generated code on real QNX.",
+                  "Click the button. It takes about a minute the first time, then a few seconds.", action="start_vm")
+
+
 def _windows_sdp_checks(env) -> list[dict]:
-    wsl_start = "In WSL run: cd ~/qnx-integration-advisor && source ~/qnx800/qnxsdp-env.sh && ./start.sh"
+    wsl_start = ("Close this window and double-click start.bat again, then answer Y to \"QNX mode\" "
+                 "(or in WSL run: source ~/qnx800/qnxsdp-env.sh && ./start.sh)")
     if env.index:
         s = env.index.summary()
         return [

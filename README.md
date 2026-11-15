@@ -39,8 +39,27 @@ the web UI ships pre-built.
 
 The first start takes a minute or two while it installs into a private `.venv` folder. Later starts
 take a few seconds. Keep the launcher window open while you use the tool; close it (or press Ctrl+C)
-to stop. With QNX SDP 8.0 installed, run `source ~/qnx800/qnxsdp-env.sh` before `./start.sh` and
-results are checked against your sysroot.
+to stop.
+
+### Run it on QNX (QNX mode)
+
+With [QNX SDP 8.0](https://www.qnx.com/products/everywhere/) installed (free for non-commercial use),
+the advisor compiles the generated code with `qcc` and runs it on a QNX 8.0 virtual machine it creates
+from your SDP:
+
+- **Windows (SDP installed in WSL Ubuntu):** double-click `start.bat` and answer **Y** to *Start in QNX
+  mode*. The launcher prepares KVM and QEMU networking in WSL, runs the advisor there with your SDP, opens
+  your Windows browser and boots the QNX VM in the background. No terminal needed.
+- **Linux:** run `./start.sh`. It loads `~/qnx800/qnxsdp-env.sh` by itself and indexes the SDP on first
+  run. After each restart, run `sudo qnx-target/vm/host-prep.sh $USER` once (KVM + the QEMU bridge), then
+  press **Start QNX virtual machine** on the Setup page.
+
+Then analyze a repository, open **Verify on QNX** and press **Run on QNX 8.0**. One-time host packages:
+`sudo apt install qemu-system-x86 bridge-utils dnsmasq python3-venv`. The VM image lives in
+`~/.qnx-advisor/vm` and is never committed.
+
+Hackathon judges: see [`docs/SUBMISSION.md`](docs/SUBMISSION.md) for the description, build and run
+details and the evidence of QNX use.
 
 ### Developer setup
 
@@ -128,11 +147,14 @@ output never reaches a shell.
 > - `make rules-validate`: every API the rules recommend exists in the SDP 8.0.0 sysroot index.
 >
 > The M1 pipeline, web UI, tests and evaluation also run on Windows 11 without an SDP.
-> - `make demo` on a QNX 8.0.0 QEMU target (x86_64): the agent spawned the generated
->   `motor_pid` resource manager, `/dev/motor_pid` appeared after 5.3 ms, and the agent then
->   stopped it as designed ([`docs/sample-verification-record.json`](docs/sample-verification-record.json)).
->   In that record `exit_status: -1` means the service ended by signal, not that it failed.
->   QEMU timings are indicative only.
+> - Windows 11 QNX mode (`start.bat`, then **Run on QNX 8.0** in the UI) and `make demo` on a QNX 8.0.0
+>   QEMU target (x86_64, KVM): the kit was compiled with `qcc` (6/6), the agent spawned the generated
+>   `motor_pid` resource manager, `/dev/motor_pid` appeared after 11.7 ms, the compatibility
+>   self-test passed, and the agent then stopped the service as designed
+>   ([`docs/sample-verification-record.json`](docs/sample-verification-record.json)).
+>   In that record `exit_status: -1` with `verify_signal: 9` means the agent stopped the service, not
+>   that it failed. Timer lateness is measured per period (each wake-up against one period after the
+>   previous one). QEMU timings depend on the host PC and are indicative only.
 
 ## Evidence of QNX use
 
@@ -145,7 +167,7 @@ output never reaches a shell.
 | `qcc` builds for x86_64 and aarch64le | [`qnx-target/Makefile`](qnx-target/Makefile), [`advisor/sdp/toolchain.py`](advisor/sdp/toolchain.py), `docs/qnx-check-log.txt` |
 | Sysroot indexing with the SDP's `nto*-nm` (pure-Python ELF reader as fallback) | [`advisor/sdp/indexer.py`](advisor/sdp/indexer.py), [`advisor/sdp/elf.py`](advisor/sdp/elf.py) |
 | Generated QNX resource manager, shims and toolchain file | [`advisor/kit/templates/`](advisor/kit/templates/) |
-| QEMU target via `mkqnximage` | [`qnx-target/vm/`](qnx-target/vm/) |
+| QEMU target via `mkqnximage`, booted from the UI (`host-prep.sh`, `setup-vm.sh`, `advisor/qnxvm.py`) | [`qnx-target/vm/`](qnx-target/vm/), [`advisor/qnxvm.py`](advisor/qnxvm.py) |
 | Measured output from a QNX 8.0 target | `docs/sample-verification-record.json` (produced by `make demo`) |
 
 ## Why QNX? analysis
