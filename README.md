@@ -25,6 +25,8 @@ The tool advises and scaffolds. It does not promise a fully automatic port.
 
 ## Quick start (no setup knowledge needed)
 
+New to QNX? Read **[How it works, in plain English](docs/HOW-IT-WORKS.md)** first.
+
 You need **Python 3.11 or newer** ([python.org](https://www.python.org/downloads/); on Windows tick
 "Add python.exe to PATH") and an internet connection the first time. Node.js is **not** needed:
 the web UI ships pre-built.
