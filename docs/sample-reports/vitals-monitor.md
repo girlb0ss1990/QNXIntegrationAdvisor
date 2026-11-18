@@ -1,6 +1,6 @@
 # QNX 8.0 Integration Report: samples/vitals-monitor
 
-Commit `local` · mode M1 · SDP 8.0.0 · generated 2026-11-11T23:31:24Z
+Commit `local` · mode M1 · SDP 8.0.0 · generated 2026-11-18T21:28:52Z
 
 **Readiness score: 19/100** (score = max(0, 100 - sum(weight(severity) x min(hits, 3))); blocker 15, high 6, medium 2, low 1; guarded findings weigh 0)
 
@@ -22,6 +22,62 @@ Commit `local` · mode M1 · SDP 8.0.0 · generated 2026-11-11T23:31:24Z
 | low | LNX-PERIODIC-SLEEP sleep-based periodic loop | available | `src/vitals.c:79` | A relative sleep inside a loop drifts by the loop body's run time. Use clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, ...) with a running deadline, or a pulse timer when the thread also needs to receive other events. |
 | info | LNX-LOG syslog logging | available | `src/vitals.c:39`, `src/vitals.c:40`, `src/vitals.c:100` | syslog() works on QNX. slog2 (slog2_register, slog2f) is recommended for structured, low-overhead logs that you can read with slog2info. |
 | info | LNX-SHM POSIX shared memory | available | `src/vitals.c:109` | shm_open()/mmap() work on QNX. For memory shared with devices or across a hypervisor boundary, look at typed memory (posix_typed_mem_open). Keep the shared struct layout fixed-size and guard it with a process-shared, priority-inheriting mutex. |
+
+## Start here (new to QNX)
+
+New to QNX? Start here. QNX is a strong fit: this is the kind of time-critical, device or service code QNX is built for. The tool found 12 place(s) in vitals_monitor that use Linux-only features, 1 of which must change before it builds on QNX. Below are the QNX ideas you need for this project, then a step-by-step path from where you are now to running on QNX.
+
+### QNX in a few ideas
+
+- **Host, target and the QNX SDP.** You write and compile code on your normal PC (the "host"), and it runs on a separate QNX machine (the "target"). The free QNX SDP gives your PC the QNX compiler, qcc, and the QNX libraries. The target can be real hardware or a QNX virtual machine on your PC, which is what this tool starts for you. *Like building a phone app on a laptop and running it on the phone.* In this project: vitals_monitor is compiled on your PC with qcc and then copied to the QNX virtual machine to run.
+- **Most of your code already fits.** QNX follows the POSIX standard, the same family of APIs that Linux uses for files, threads, sockets and timers. Ordinary C and C++ code usually compiles unchanged. The work is in the Linux-only parts, which the Audit tab lists one by one. *Moving house in the same city. Most things come with you; a few appliances need a different plug.* In this project: Only the places the audit lists need attention. The rest of vitals_monitor should carry over as it is.
+- **A tiny kernel, everything else is a normal program.** On Linux, drivers and many services run inside the kernel, so a bug in one can crash the whole machine. QNX keeps the kernel very small. It only schedules threads, passes messages and handles interrupts. Drivers, file systems and networking run as ordinary programs with their own protected memory, so one failing does not take the others down, and it can simply be restarted. *Separate shops in a mall instead of one big store. If one closes, the rest stay open.* In this project: On QNX, vitals_monitor runs as its own protected process, so a fault in it cannot corrupt the rest of the system.
+- **Programs talk by sending messages.** In QNX, almost everything is done by one program sending a message to another and waiting for the reply. Even reading a file is a message to the file-system program. Messages are fast and carry the sender's priority, so an urgent request is handled urgently. *Passing a note across a desk and waiting for the answer, with urgent notes jumping the queue.* In this project: Other programs can talk to vitals_monitor with messages instead of Linux-specific event or IPC mechanisms.
+- **Resource managers, a service that looks like a file.** A resource manager is a QNX program that appears as a name such as /dev/something. Other programs use it with normal open(), read(), write() and devctl() calls, and QNX turns each call into a message to your program. This is how QNX drivers and services are usually built. *A shop with a street address. Anyone who knows the address can walk in and ask for something.* In this project: The porting kit already contains a resource manager that makes vitals_monitor appear as /dev/vitals_monitor.
+- **Pulses, tiny messages for timers and events.** A pulse is a very small one-way message, often sent by a timer or an interrupt. One thread can wait on a single "channel" for every kind of event (timer ticks, notifications, requests) and handle them in priority order. This replaces Linux's epoll, timerfd and eventfd loops. *A doorbell. It carries no letter, just "something needs you now", and different bells ring differently.* In this project: vitals_monitor's Linux event loop or timers become a QNX channel that receives pulses.
+- **Abilities, root powers split into small pieces.** Instead of "root can do everything", QNX splits root's power into separate abilities, such as creating a /dev name or raising thread priority. A program keeps only the abilities it needs and then runs as a normal user, so a security bug in it can do much less damage. *Giving a contractor a key to one room instead of the whole building.* In this project: vitals_monitor can drop to an ordinary user after start-up and keep only the abilities it really needs.
+- **Watching and restarting programs.** Because services are separate programs, QNX can notice the moment one dies and start it again without rebooting. The process manager can send a notification when a program exits, and a small supervisor program can restart it. *A stage manager who notices an actor is missing and sends in the understudy straight away.* In this project: The steps show how to replace vitals_monitor's Linux supervision (such as systemd) with QNX start-up and restart.
+- **Seeing what the system did.** QNX has a fast system log (slog2) and a kernel tracer (tracelogger) that records which thread ran, which messages were sent and which interrupts arrived, with timestamps. It's the main tool for finding out why something was late. *A flight recorder for your software.* In this project: When you test vitals_monitor's timing on QNX, a trace shows exactly what ran and when.
+
+### Your path to QNX
+
+1. **Learn the big ideas (5 minutes)**. A few QNX ideas explain almost everything in this report.
+   - Read the cards in “QNX in a few ideas” below.
+   - Then open the Why QNX? tab to see which of them matter for this project, with evidence.
+   - Done when: You can say in one sentence why this project would (or would not) benefit from QNX.
+2. **See QNX running on your PC**. You don't need special hardware. A QNX 8.0 virtual machine runs inside your computer.
+   - Open ⚙ Setup.
+   - If “QNX 8.0 target” is not green, press Start QNX virtual machine and wait about a minute.
+   - Done when: Setup shows “QNX 8.0 target: Ready”.
+3. **Run the generated vitals_monitor code on QNX**. This proves the generated starting point builds with qcc and runs on QNX before you change your own code.
+   - Open the Verify on QNX tab.
+   - Press Run on QNX 8.0 and watch the log.
+   - Done when: Every line of the result checklist shows ✓.
+4. **Fix what stops the code from building on QNX**. Blockers use Linux-only features that don't exist on QNX, so they must be changed first. High items build, but behave differently.
+   - Linux i2c-dev (src/vitals.c:25): see the Audit tab for the QNX replacement.
+   - eventfd notifier (src/vitals.c:14): see the Audit tab for the QNX replacement.
+   - Root-only daemon / Linux capabilities (src/vitals.c:17): see the Audit tab for the QNX replacement.
+   - Linux /sys paths (src/vitals.c:56): see the Audit tab for the QNX replacement.
+   - Done when: The Audit tab has no blockers left when you analyze your updated code.
+5. **Build your own project with the QNX compiler**. Building often (and early) shows the remaining problems as compiler errors.
+   - Download the porting kit (Porting kit tab) and copy its cmake/ and include/ folders into your project.
+   - In WSL or Linux, load the QNX tools: `source ~/qnx800/qnxsdp-env.sh`
+   - Then build: `cmake -B build-qnx -DCMAKE_TOOLCHAIN_FILE=cmake/qnx8-toolchain.cmake && cmake --build build-qnx`
+   - `PORTING_GUIDE.md` in the kit explains each file.
+   - Done when: The build finishes without errors.
+6. **Work through the 13 porting steps**. Each step changes one thing, shows the code before and after, and gives a command to check it.
+   - Step 1: Cross-compile with the QNX 8.0 toolchain (effort S)
+   - Step 2: Put I2C access behind a sensor HAL (effort M)
+   - Step 3: Turn eventfd wake-ups into pulses (effort S)
+   - Step 4: Remove sysfs dependencies (effort M)
+   - Step 5: Replace fork()/exec with posix_spawn() (effort S)
+   - Step 6: Wrap device control in a HAL (effort M)
+   - …and the rest in the 3-pillar report.
+   - Done when: Every step's check command succeeds.
+7. **Test on real hardware when timing matters** (optional). A virtual machine shares your PC with everything else, so its timings are only a rough guide.
+   - QNX 8.0 runs on a Raspberry Pi 5; build for aarch64le (the arch selector next to Analyze).
+   - Run the same verification against the board.
+   - Done when: You have measurements from the hardware you will ship on.
 
 ## Why QNX?
 
@@ -227,7 +283,7 @@ Verify: `cmake -B build-qnx -DCMAKE_TOOLCHAIN_FILE=cmake/qnx8-toolchain.cmake -D
 
 ### 2. Put I2C access behind a sensor HAL
 
-*api_migration · effort M · qcc snippet check: skipped*
+*api_migration · effort M · qcc snippet check: failed*
 
 Create sensor_hal_read(); move the i2c-dev code to sensor_hal_linux.c and add sensor_hal_qnx.c.
 
@@ -253,7 +309,7 @@ Verify: `qcc -Vgcc_ntox86_64 -fsyntax-only src/sensor_hal_qnx.c`
 
 ### 3. Turn eventfd wake-ups into pulses
 
-*api_migration · effort S · qcc snippet check: skipped*
+*api_migration · effort S · qcc snippet check: failed*
 
 Create the notifier with the qnx_compat.h shim from the porting kit. On QNX it sends a pulse to the loop's channel; elsewhere it falls back to a pipe.
 
@@ -298,7 +354,7 @@ Verify: `grep -rn '"/sys/' src/  # should be empty outside hal_linux.c`
 
 ### 5. Replace fork()/exec with posix_spawn()
 
-*api_migration · effort S · qcc snippet check: skipped*
+*api_migration · effort S · qcc snippet check: failed*
 
 Use posix_spawn(); for daemonizing, let the startup script background the process instead.
 
@@ -327,7 +383,7 @@ Verify: `qcc -Vgcc_ntox86_64 -fsyntax-only src/main.c`
 
 ### 6. Wrap device control in a HAL
 
-*api_migration · effort M · qcc snippet check: skipped*
+*api_migration · effort M · qcc snippet check: failed*
 
 Move ioctl() calls behind functions such as hal_set_line(); implement the QNX side with devctl().
 
@@ -361,7 +417,7 @@ Verify: `qcc -Vgcc_ntox86_64 -fsyntax-only src/hal_qnx.c`
 
 ### 7. Expose the service as a /dev/vitals_monitor resource manager
 
-*resmgr_conversion · effort L · qcc snippet check: skipped*
+*resmgr_conversion · effort L · qcc snippet check: failed*
 
 Start from the kit's resource-manager skeleton. Clients open /dev/vitals_monitor and use read(), write() and devctl() instead of a private socket or shared memory. The periodic work moves into the timer pulse handler, which runs serialized with client requests in one thread.
 
@@ -408,7 +464,7 @@ Verify: `ls -l /dev/vitals_monitor && vitals_monitorctl  # on the target`
 
 ### 8. Use absolute-deadline sleeps for periodic work
 
-*scheduling_timing · effort S · qcc snippet check: skipped*
+*scheduling_timing · effort S · qcc snippet check: failed*
 
 Replace relative sleeps in periodic loops with clock_nanosleep(TIMER_ABSTIME).
 
@@ -439,7 +495,7 @@ Verify: `qcc -Vgcc_ntox86_64 -fsyntax-only src/main.c`
 
 ### 9. Drop privileges with procmgr_ability()
 
-*reliability_security · effort M · qcc snippet check: skipped*
+*reliability_security · effort M · qcc snippet check: failed*
 
 After privileged setup, allow the specific abilities the service still needs for the non-root domain, deny and lock everything else, then setuid() to a service user.
 
@@ -474,7 +530,7 @@ Verify: `pidin -p <service> arg  # on target: confirm non-root uid`
 
 ### 10. Replace systemd supervision with startup script + procmgr death notifications
 
-*reliability_security · effort M · qcc snippet check: skipped*
+*reliability_security · effort M · qcc snippet check: failed*
 
 Daemonize with procmgr_daemon() and register PROCMGR_EVENT_DAEMON_DEATH pulse notifications (or attach to HAM if installed).
 
@@ -505,7 +561,7 @@ Verify: `pidin -F '%a %b %N'  # on target, confirm supervised daemon running`
 
 ### 11. Optionally switch to slog2
 
-*reliability_security · effort S · qcc snippet check: skipped*
+*reliability_security · effort S · qcc snippet check: failed*
 
 Register a slog2 buffer set at start-up and route log calls through slog2f().
 

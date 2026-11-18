@@ -172,6 +172,23 @@ output never reaches a shell.
 | QEMU target via `mkqnximage`, booted from the UI (`host-prep.sh`, `setup-vm.sh`, `advisor/qnxvm.py`) | [`qnx-target/vm/`](qnx-target/vm/), [`advisor/qnxvm.py`](advisor/qnxvm.py) |
 | Measured output from a QNX 8.0 target | `docs/sample-verification-record.json` (produced by `make demo`) |
 
+## Start here: for developers new to QNX
+
+Every report opens on a **Start here** tab:
+
+- **QNX in a few ideas:** plain-English cards from [`advisor/rules/concepts.yaml`](advisor/rules/concepts.yaml),
+  chosen by the QNX features recommended for the repository. Each has an everyday analogy and an "In this
+  project" line.
+- **Your path to QNX:** a numbered checklist built from the report: get the SDP if missing, start the
+  QNX VM, run the generated code on QNX, fix the blockers (named with file:line), build with the kit's
+  toolchain file, work through the porting steps, test on hardware. Each step says why, how, and "done when".
+- **Ask the advisor** (AI): plain-English questions about the report, answered with numbered steps and
+  follow-up suggestions. Answers go through the same hallucination guard as the rest of the AI output,
+  line by line and code block by code block. Without measurements, numbers are removed.
+
+With AI-assisted analysis, every audit finding also gets an "In plain English" explanation. The guide is
+also included in `report.md`.
+
 ## Why QNX? analysis
 
 Every report opens with a **Why QNX?** tab: an overall fit (Strong / Good / Possible / Limited) and the

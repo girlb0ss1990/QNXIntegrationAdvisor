@@ -14,7 +14,7 @@ from typing import Literal, Optional
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse, Response, StreamingResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from .ingest.limits import MAX_CONCURRENT_JOBS
 from .models import IntegrationReport
@@ -76,6 +76,8 @@ class Job:
     events: list[dict] = field(default_factory=list)
     status: str = "queued"
     report: Optional[IntegrationReport] = None
+    repo_symbols: set = field(default_factory=set)      # for the fact checker of "Ask the advisor"
+    excerpts: list = field(default_factory=list)        # short code excerpts the AI may quote
     cond: threading.Condition = field(default_factory=threading.Condition)
 
     def emit(self, event: str, data: dict) -> None:
@@ -89,6 +91,11 @@ class JobRequest(BaseModel):
     ref: Optional[str] = None
     arch: Literal["x86_64", "aarch64le"] = "x86_64"
     use_llm: bool = False
+
+
+class AskRequest(BaseModel):
+    question: str = Field(min_length=1, max_length=1000)
+    history: list[dict] = Field(default_factory=list, max_length=12)
 
 
 class LLMSettingsRequest(BaseModel):
@@ -151,6 +158,10 @@ def create_app(sdp: str | None = None, target: str | None = None) -> FastAPI:
                 res = analyze(req.source, ref=req.ref, arch=req.arch, use_llm=req.use_llm,
                               env=Environment.detect(sdp), emit=job.emit)
                 job.report = res.report
+                if res.scan is not None and res.report.applicable:
+                    from .synth.llm import _excerpts
+                    job.repo_symbols = set(res.scan.repo_symbols)
+                    job.excerpts = _excerpts(res.scan, res.report)
                 job.status = "done"
                 job.emit("done", {"message": "report ready", "score": res.report.readiness_score})
             except Exception as e:     # surface every failure to the UI, never crash the server
@@ -267,6 +278,30 @@ def create_app(sdp: str | None = None, target: str | None = None) -> FastAPI:
 
         threading.Thread(target=run, daemon=True).start()
         return {"started": True, "since": len(job.events)}
+
+    def answer(report: IntegrationReport, req: AskRequest, repo_symbols: set, excerpts: list) -> dict:
+        from .pipeline import Environment
+        from .synth.llm import LLMError, ask, get_provider
+        provider = get_provider()
+        if provider is None:
+            raise HTTPException(409, "Ask the advisor needs an AI key: open Setup and add one.")
+        try:
+            return ask(report, req.question, req.history, provider, Environment.detect(sdp).index,
+                       repo_symbols, excerpts)
+        except LLMError as e:
+            raise HTTPException(502, f"The AI provider did not answer: {e}") from e
+
+    @app.post("/api/jobs/{job_id}/ask")
+    def api_ask(job_id: str, req: AskRequest):
+        job = get_job(job_id)
+        return answer(require_report(job_id), req, job.repo_symbols, job.excerpts)
+
+    @app.post("/api/samples/{name}/ask")
+    def api_ask_sample(name: str, req: AskRequest):
+        p = SAMPLE_REPORTS / f"{name}.json"
+        if not name.replace("-", "").replace("_", "").isalnum() or not p.exists():
+            raise HTTPException(404, "unknown sample")
+        return answer(IntegrationReport.model_validate_json(p.read_text(encoding="utf-8")), req, set(), [])
 
     @app.get("/api/jobs/{job_id}/trace.kev")
     def api_trace(job_id: str):

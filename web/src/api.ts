@@ -1,4 +1,4 @@
-import type { EnvInfo, IntegrationReport, JobEvent, LlmStatus, LlmTest, SetupInfo } from "./types";
+import type { AskAnswer, EnvInfo, IntegrationReport, JobEvent, LlmStatus, LlmTest, SetupInfo } from "./types";
 
 declare const __STATIC_VIEWER__: boolean;
 export const STATIC_VIEWER: boolean = __STATIC_VIEWER__;
@@ -89,6 +89,13 @@ export async function importWslIndex(): Promise<{ symbols: number; sdp_version: 
 
 export async function startVm(): Promise<{ state: string; log: string }> {
   return json(await fetch("api/setup/start-vm", { method: "POST" }));
+}
+
+export async function askAdvisor(where: { jobId: string | null; sample: string | null }, question: string,
+                                 history: { role: string; text: string }[]): Promise<AskAnswer> {
+  const url = where.jobId ? `api/jobs/${where.jobId}/ask` : `api/samples/${where.sample}/ask`;
+  return json(await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" },
+                                 body: JSON.stringify({ question, history }) }));
 }
 
 export async function testLlm(): Promise<LlmTest> {

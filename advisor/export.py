@@ -18,7 +18,20 @@ def to_markdown(r: IntegrationReport) -> str:
     for f in r.findings:
         locs = ", ".join(f"`{l.file_path}:{l.line_start}`" for l in f.locations[:4])
         extra = f" (link: {', '.join('-l' + x for x in f.link_libs)})" if f.link_libs else ""
-        L.append(f"| {f.severity} | {f.rule_id} {f.title} | {f.sysroot_status} | {locs} | {f.guidance}{extra} |")
+        plain = f" *In plain English:* {f.plain}" if f.plain else ""
+        L.append(f"| {f.severity} | {f.rule_id} {f.title} | {f.sysroot_status} | {locs} | {f.guidance}{extra}{plain} |")
+    if r.beginner:
+        g = r.beginner
+        L += ["", "## Start here (new to QNX)", "", g.intro, "", "### QNX in a few ideas", ""]
+        for c in g.concepts:
+            L += [f"- **{c.term}.** {c.plain}" + (f" *{c.analogy}*" if c.analogy else "")
+                  + (f" In this project: {c.why_here}" if c.why_here else "")]
+        L += ["", "### Your path to QNX", ""]
+        for st in g.path:
+            L += [f"{st.n}. **{st.title}**{' (optional)' if st.optional else ''}. {st.why}"]
+            L += [f"   - {h}" for h in st.how]
+            if st.done_when:
+                L += [f"   - Done when: {st.done_when}"]
     if r.qnx_fit and r.benefits:
         L += ["", "## Why QNX?", "", f"**{r.qnx_fit.headline}**", ""]
         for b in r.benefits:

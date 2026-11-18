@@ -42,6 +42,12 @@ image before writing a line of useful code.
    timer lateness under load with `ClockCycles()`. The result is a verification record tied to the
    binary's SHA-256.
 
+**Made for people new to QNX.** Every report opens on a **Start here** tab. It explains the QNX ideas
+this project needs in plain English, each with an everyday analogy, and lays out a tailored, checkable path
+from "never used QNX" to "running on QNX". An **Ask the advisor** box lets a beginner ask questions such as
+"what is a resource manager?" or "how do I fix this?". The answers are about their own code, and they are
+fact-checked against their SDP just like the rest of the AI output.
+
 **Built for solo developers.** Double-click `start.bat` (Windows) or run `./start.sh` (Linux/macOS). A Setup
 page checks Git, the parser, the AI key, the QNX SDP and the QNX target, and explains how to fix anything
 missing in plain language. On Windows, the launcher finds a QNX SDP installed in WSL and offers **QNX

@@ -68,6 +68,7 @@ export function AuditTab({ r }: { r: IntegrationReport }) {
           </button>
           {open === f.rule_id && (
             <div className="finding-body">
+              {f.plain && <p className="plain"><strong>In plain English:</strong> <Inline text={f.plain} /></p>}
               <p><Inline text={f.guidance} /></p>
               {f.sysroot_detail && <p className="detail">Sysroot check: {f.sysroot_detail}</p>}
               {f.alternatives.length > 0 && (

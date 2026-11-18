@@ -103,7 +103,21 @@ your PC.
 
 ### 4. Read the results
 
-The report has five tabs.
+The report has six tabs. If you're new to QNX, start with the first one.
+
+**Start here** *(new to QNX? read this first)*
+- **QNX in a few ideas:** short cards that explain the QNX ideas this project needs (host and target, the
+  tiny kernel, message passing, resource managers, real-time priorities and so on). Each card has an
+  everyday comparison and a line saying what the idea means for *your* code.
+- **Your path to QNX:** a numbered checklist from where you are now to running on QNX. Each step says why
+  it matters, exactly what to do, and how you know it's done, with a button that opens the right tab.
+  Tick steps off as you go; the ticks are remembered in your browser.
+- **Ask the advisor** *(needs an AI key)*: type any question in plain English, such as "what is a
+  resource manager?", "what should I do first?" or "how do I fix the epoll finding?", or click a suggested
+  question. The AI answers about this project, gives numbered steps, and suggests what to ask next. Every
+  answer is fact-checked like the rest of the report: QNX functions that don't exist in your SDP and
+  invented speed numbers are removed, and the tool tells you how many claims it removed. Each question is a
+  small paid request to your AI provider.
 
 **Why QNX?**
 The tool's verdict: **Strong fit**, **Good fit**, **Possible fit** or **Limited benefit**. Below it are
@@ -192,6 +206,15 @@ specifically, and adds diagrams.
 2. Choose a provider. **OpenRouter** is the easiest: one key for many AI models.
 3. Click the link to get a key, paste it in, and press **Save and test connection**.
 4. Back on the main page, tick **AI-assisted** before you press Analyze.
+
+With AI turned on, the tool also:
+
+- rewrites the **Start here** introduction and the "In this project" lines on the concept cards for your
+  code;
+- adds an **In plain English** explanation to every finding in the Audit tab (what the Linux code does, why
+  it's different on QNX, what to do instead);
+- answers your questions in the **Ask the advisor** box on the Start here tab. This works even without
+  ticking AI-assisted.
 
 Good to know:
 

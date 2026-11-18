@@ -1,6 +1,6 @@
 # QNX 8.0 Integration Report: samples/motor-pid-controller
 
-Commit `local` · mode M1 · SDP 8.0.0 · generated 2026-11-11T23:31:24Z
+Commit `local` · mode M1 · SDP 8.0.0 · generated 2026-11-18T21:28:50Z
 
 **Readiness score: 0/100** (score = max(0, 100 - sum(weight(severity) x min(hits, 3))); blocker 15, high 6, medium 2, low 1; guarded findings weigh 0)
 
@@ -22,6 +22,61 @@ Commit `local` · mode M1 · SDP 8.0.0 · generated 2026-11-11T23:31:24Z
 | low | LNX-CPU-BUDGET Background threads next to a real-time loop | available | `src/main.c:80` | Adaptive partitioning (APS) is not part of QNX SDP 8.0. To bound a background thread's CPU use, run it under SCHED_SPORADIC (budget + replenishment period), watch its per-thread CPU-time clock with a timer to detect overruns, pin it away from the control core with a run-mask, or use the QNX Hypervisor for hard isolation. |
 | low | LNX-INOTIFY inotify file watching | available | `src/config_watch.c:4`, `src/config_watch.c:9`, `src/config_watch.c:11` | QNX 8.0 provides <sys/inotify.h>. Link with -lfsnotify and make sure the fsevmgr service runs on the target. This is a build-flag change, not a blocker. (link: -lfsnotify) |
 | low | LNX-PERIODIC-SLEEP sleep-based periodic loop | available | `src/main.c:55`, `src/main.c:58` | A relative sleep inside a loop drifts by the loop body's run time. Use clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, ...) with a running deadline, or a pulse timer when the thread also needs to receive other events. |
+
+## Start here (new to QNX)
+
+New to QNX? Start here. QNX is a strong fit: this is the kind of time-critical, device or service code QNX is built for. The tool found 12 place(s) in motor_pid that use Linux-only features, 2 of which must change before it builds on QNX. Below are the QNX ideas you need for this project, then a step-by-step path from where you are now to running on QNX.
+
+### QNX in a few ideas
+
+- **Host, target and the QNX SDP.** You write and compile code on your normal PC (the "host"), and it runs on a separate QNX machine (the "target"). The free QNX SDP gives your PC the QNX compiler, qcc, and the QNX libraries. The target can be real hardware or a QNX virtual machine on your PC, which is what this tool starts for you. *Like building a phone app on a laptop and running it on the phone.* In this project: motor_pid is compiled on your PC with qcc and then copied to the QNX virtual machine to run.
+- **Most of your code already fits.** QNX follows the POSIX standard, the same family of APIs that Linux uses for files, threads, sockets and timers. Ordinary C and C++ code usually compiles unchanged. The work is in the Linux-only parts, which the Audit tab lists one by one. *Moving house in the same city. Most things come with you; a few appliances need a different plug.* In this project: Only the places the audit lists need attention. The rest of motor_pid should carry over as it is.
+- **A tiny kernel, everything else is a normal program.** On Linux, drivers and many services run inside the kernel, so a bug in one can crash the whole machine. QNX keeps the kernel very small. It only schedules threads, passes messages and handles interrupts. Drivers, file systems and networking run as ordinary programs with their own protected memory, so one failing does not take the others down, and it can simply be restarted. *Separate shops in a mall instead of one big store. If one closes, the rest stay open.* In this project: On QNX, motor_pid runs as its own protected process, so a fault in it cannot corrupt the rest of the system.
+- **Programs talk by sending messages.** In QNX, almost everything is done by one program sending a message to another and waiting for the reply. Even reading a file is a message to the file-system program. Messages are fast and carry the sender's priority, so an urgent request is handled urgently. *Passing a note across a desk and waiting for the answer, with urgent notes jumping the queue.* In this project: Other programs can talk to motor_pid with messages instead of Linux-specific event or IPC mechanisms.
+- **Resource managers, a service that looks like a file.** A resource manager is a QNX program that appears as a name such as /dev/something. Other programs use it with normal open(), read(), write() and devctl() calls, and QNX turns each call into a message to your program. This is how QNX drivers and services are usually built. *A shop with a street address. Anyone who knows the address can walk in and ask for something.* In this project: The porting kit already contains a resource manager that makes motor_pid appear as /dev/motor_pid.
+- **Pulses, tiny messages for timers and events.** A pulse is a very small one-way message, often sent by a timer or an interrupt. One thread can wait on a single "channel" for every kind of event (timer ticks, notifications, requests) and handle them in priority order. This replaces Linux's epoll, timerfd and eventfd loops. *A doorbell. It carries no letter, just "something needs you now", and different bells ring differently.* In this project: motor_pid's Linux event loop or timers become a QNX channel that receives pulses.
+- **Real-time, the right code runs at the right time.** QNX always runs the highest-priority thread that is ready. A low-priority task cannot delay an urgent one, even when the computer is busy. QNX also stops "priority inversion" (a low-priority thread holding a lock that an urgent thread needs), can cap how much CPU background work gets, and can pin a thread to one core. *An ambulance lane. Emergency traffic always gets through, however busy the road is.* In this project: motor_pid has timing-sensitive code; the 3-pillar report shows which QNX scheduling features apply and where.
+- **Watching and restarting programs.** Because services are separate programs, QNX can notice the moment one dies and start it again without rebooting. The process manager can send a notification when a program exits, and a small supervisor program can restart it. *A stage manager who notices an actor is missing and sends in the understudy straight away.* In this project: The steps show how to replace motor_pid's Linux supervision (such as systemd) with QNX start-up and restart.
+- **Seeing what the system did.** QNX has a fast system log (slog2) and a kernel tracer (tracelogger) that records which thread ran, which messages were sent and which interrupts arrived, with timestamps. It's the main tool for finding out why something was late. *A flight recorder for your software.* In this project: When you test motor_pid's timing on QNX, a trace shows exactly what ran and when.
+
+### Your path to QNX
+
+1. **Learn the big ideas (5 minutes)**. A few QNX ideas explain almost everything in this report.
+   - Read the cards in “QNX in a few ideas” below.
+   - Then open the Why QNX? tab to see which of them matter for this project, with evidence.
+   - Done when: You can say in one sentence why this project would (or would not) benefit from QNX.
+2. **See QNX running on your PC**. You don't need special hardware. A QNX 8.0 virtual machine runs inside your computer.
+   - Open ⚙ Setup.
+   - If “QNX 8.0 target” is not green, press Start QNX virtual machine and wait about a minute.
+   - Done when: Setup shows “QNX 8.0 target: Ready”.
+3. **Run the generated motor_pid code on QNX**. This proves the generated starting point builds with qcc and runs on QNX before you change your own code.
+   - Open the Verify on QNX tab.
+   - Press Run on QNX 8.0 and watch the log.
+   - Done when: Every line of the result checklist shows ✓.
+4. **Fix what stops the code from building on QNX**. Blockers use Linux-only features that don't exist on QNX, so they must be changed first. High items build, but behave differently.
+   - epoll event loop (src/main.c:13): see the Audit tab for the QNX replacement.
+   - timerfd periodic timer (src/main.c:15): see the Audit tab for the QNX replacement.
+   - Linux /sys paths (src/motor_io.c:16): see the Audit tab for the QNX replacement.
+   - Done when: The Audit tab has no blockers left when you analyze your updated code.
+5. **Build your own project with the QNX compiler**. Building often (and early) shows the remaining problems as compiler errors.
+   - Download the porting kit (Porting kit tab) and copy its cmake/ and include/ folders into your project.
+   - In WSL or Linux, load the QNX tools: `source ~/qnx800/qnxsdp-env.sh`
+   - Then build: `cmake -B build-qnx -DCMAKE_TOOLCHAIN_FILE=cmake/qnx8-toolchain.cmake && cmake --build build-qnx`
+   - `PORTING_GUIDE.md` in the kit explains each file.
+   - Done when: The build finishes without errors.
+6. **Work through the 12 porting steps**. Each step changes one thing, shows the code before and after, and gives a command to check it.
+   - Step 1: Cross-compile with the QNX 8.0 toolchain (effort S)
+   - Step 2: Replace the epoll loop (effort M)
+   - Step 3: Remove sysfs dependencies (effort M)
+   - Step 4: Wrap device control in a HAL (effort M)
+   - Step 5: Expose the service as a /dev/motor_pid resource manager (effort L)
+   - Step 6: Replace timerfd with a pulse-delivering POSIX timer (effort M)
+   - …and the rest in the 3-pillar report.
+   - Done when: Every step's check command succeeds.
+7. **Test on real hardware when timing matters** (optional). A virtual machine shares your PC with everything else, so its timings are only a rough guide.
+   - QNX 8.0 runs on a Raspberry Pi 5; build for aarch64le (the arch selector next to Analyze).
+   - Run the same verification against the board.
+   - Done when: You have measurements from the hardware you will ship on.
 
 ## Why QNX?
 
@@ -216,7 +271,7 @@ Verify: `cmake -B build-qnx -DCMAKE_TOOLCHAIN_FILE=cmake/qnx8-toolchain.cmake -D
 
 ### 2. Replace the epoll loop
 
-*api_migration · effort M · qcc snippet check: skipped*
+*api_migration · effort M · qcc snippet check: failed*
 
 Start with poll() so the code builds and runs on QNX. Once it works, consider moving to a channel + pulse loop (see the resource-manager step) where each event source has its own pulse code and priority.
 
@@ -267,7 +322,7 @@ Verify: `grep -rn '"/sys/' src/  # should be empty outside hal_linux.c`
 
 ### 4. Wrap device control in a HAL
 
-*api_migration · effort M · qcc snippet check: skipped*
+*api_migration · effort M · qcc snippet check: failed*
 
 Move ioctl() calls behind functions such as hal_set_line(); implement the QNX side with devctl().
 
@@ -301,7 +356,7 @@ Verify: `qcc -Vgcc_ntox86_64 -fsyntax-only src/hal_qnx.c`
 
 ### 5. Expose the service as a /dev/motor_pid resource manager
 
-*resmgr_conversion · effort L · qcc snippet check: skipped*
+*resmgr_conversion · effort L · qcc snippet check: failed*
 
 Start from the kit's resource-manager skeleton. Clients open /dev/motor_pid and use read(), write() and devctl() instead of a private socket or shared memory. The periodic work moves into the timer pulse handler, which runs serialized with client requests in one thread.
 
@@ -348,7 +403,7 @@ Verify: `ls -l /dev/motor_pid && motor_pidctl  # on the target`
 
 ### 6. Replace timerfd with a pulse-delivering POSIX timer
 
-*scheduling_timing · effort M · qcc snippet check: skipped*
+*scheduling_timing · effort M · qcc snippet check: failed*
 
 The kit's qnx_compat.h provides qnx_periodic_timer_create()/qnx_periodic_timer_wait() built on timer_create() + SIGEV_PULSE_INIT + MsgReceivePulse(). Keep the control-loop body unchanged.
 
@@ -385,7 +440,7 @@ Verify: `qcc -Vgcc_ntox86_64 -fsyntax-only -Iinclude src/main.c`
 
 ### 7. Pin the control thread with a run-mask
 
-*scheduling_timing · effort S · qcc snippet check: skipped*
+*scheduling_timing · effort S · qcc snippet check: failed*
 
 Replace sched_setaffinity() with ThreadCtl() and a run-mask.
 
@@ -413,7 +468,7 @@ Verify: `pidin -p <service> -F '%a %b %N %i'  # on target`
 
 ### 8. Enable priority inheritance on shared mutexes
 
-*scheduling_timing · effort S · qcc snippet check: skipped*
+*scheduling_timing · effort S · qcc snippet check: failed*
 
 Initialize the mutex with a PTHREAD_PRIO_INHERIT attribute.
 
@@ -439,7 +494,7 @@ Verify: `advisorctl bench-timer --load 4  # compare lateness before/after`
 
 ### 9. Bound background threads with SCHED_SPORADIC
 
-*scheduling_timing · effort M · qcc snippet check: skipped*
+*scheduling_timing · effort M · qcc snippet check: failed*
 
 Give the telemetry/worker thread a sporadic budget and low replenishment priority.
 
@@ -471,7 +526,7 @@ Verify: `pidin -p <service> -F '%a %b %p %i'  # policy column shows sporadic`
 
 ### 10. Use absolute-deadline sleeps for periodic work
 
-*scheduling_timing · effort S · qcc snippet check: skipped*
+*scheduling_timing · effort S · qcc snippet check: failed*
 
 Replace relative sleeps in periodic loops with clock_nanosleep(TIMER_ABSTIME).
 
@@ -505,7 +560,7 @@ Verify: `qcc -Vgcc_ntox86_64 -fsyntax-only src/main.c`
 
 ### 11. Replace systemd supervision with startup script + procmgr death notifications
 
-*reliability_security · effort M · qcc snippet check: skipped*
+*reliability_security · effort M · qcc snippet check: failed*
 
 Daemonize with procmgr_daemon() and register PROCMGR_EVENT_DAEMON_DEATH pulse notifications (or attach to HAM if installed).
 

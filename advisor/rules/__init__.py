@@ -57,8 +57,18 @@ def load_benefits() -> dict:
     return yaml.safe_load(BENEFITS_PATH.read_text(encoding="utf-8"))
 
 
+CONCEPTS_PATH = Path(__file__).with_name("concepts.yaml")
+
+
+@lru_cache(maxsize=1)
+def load_concepts() -> dict:
+    """'Start here' catalogue: QNX ideas explained for developers new to QNX."""
+    return yaml.safe_load(CONCEPTS_PATH.read_text(encoding="utf-8"))
+
+
 def ruleset_hash() -> str:
-    h = hashlib.sha256(RULES_PATH.read_bytes() + FEATURES_PATH.read_bytes() + BENEFITS_PATH.read_bytes())
+    h = hashlib.sha256(RULES_PATH.read_bytes() + FEATURES_PATH.read_bytes() + BENEFITS_PATH.read_bytes()
+                       + CONCEPTS_PATH.read_bytes())
     return h.hexdigest()[:16]
 
 

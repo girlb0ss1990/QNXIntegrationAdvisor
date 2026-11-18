@@ -2,11 +2,12 @@ import { useCallback, useEffect, useState } from "react";
 import { STATIC_VIEWER, createJob, getEnv, getReport, getSample, listSamples, subscribe, type SampleRef } from "./api";
 import { AuditTab, KitTab, PillarsTab, Summary, WhyTab } from "./components/Report";
 import { SetupPage } from "./components/Setup";
+import { StartTab } from "./components/StartHere";
 import { VerifyTab } from "./components/Verify";
 import type { EnvInfo, IntegrationReport, JobEvent } from "./types";
 
 const STAGES = ["clone", "scan", "sysroot", "rules", "synth", "guard", "kit", "qcc"];
-type Tab = "why" | "audit" | "pillars" | "kit" | "verify";
+type Tab = "start" | "why" | "audit" | "pillars" | "kit" | "verify";
 
 const MODE_NAME: Record<string, string> = {
   M0: "Sample viewer", M1: "Standard analysis", M2: "AI-assisted available", M3: "Live QNX target connected",
@@ -62,7 +63,8 @@ export default function App() {
   const [jobId, setJobId] = useState<string | null>(null);
   const [events, setEvents] = useState<JobEvent[]>([]);
   const [report, setReport] = useState<IntegrationReport | null>(null);
-  const [tab, setTab] = useState<Tab>("why");
+  const [tab, setTab] = useState<Tab>("start");
+  const [sample, setSample] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [view, setView] = useState<"analyze" | "setup">("analyze");
   const [welcomeDismissed, setWelcomeDismissed] = useState(readDismissed);
@@ -82,13 +84,13 @@ export default function App() {
   }, []);
 
   const start = async () => {
-    setError(null); setReport(null); setEvents([]);
+    setError(null); setReport(null); setEvents([]); setSample(null);
     try {
       const id = await createJob({ source: source.trim(), arch, use_llm: useLlm });
       setJobId(id);
       subscribe(id, 0, (e) => {
         setEvents((ev) => [...ev, e]);
-        if (e.event === "done") getReport(id).then((r) => { setReport(r); setTab("why"); });
+        if (e.event === "done") getReport(id).then((r) => { setReport(r); setTab("start"); });
       });
     } catch (e) { setError(String(e)); }
   };
@@ -96,7 +98,7 @@ export default function App() {
   const refresh = useCallback(() => { if (jobId) getReport(jobId).then(setReport); }, [jobId]);
   const openSample = async (s: SampleRef) => {
     setError(null); setJobId(null); setEvents([]);
-    try { setReport(await getSample(s)); setTab("why"); } catch (e) { setError(String(e)); }
+    try { setReport(await getSample(s)); setSample(s.name); setTab("start"); } catch (e) { setError(String(e)); }
   };
   const running = events.length > 0 && !events.some((e) => e.event === "done" || e.event === "error");
 
@@ -153,14 +155,16 @@ export default function App() {
             <Summary r={report} />
             {report.applicable === false ? null : (<>
             <nav className="tabs">
-              {(["why", "audit", "pillars", "kit", "verify"] as Tab[]).map((t) => (
+              {(["start", "why", "audit", "pillars", "kit", "verify"] as Tab[]).map((t) => (
                 <button key={t} className={tab === t ? "on" : ""} onClick={() => setTab(t)}>
-                  {{ why: "Why QNX?", audit: `Audit (${report.findings.length})`, pillars: "3-pillar report", kit: `Porting kit (${report.kit.length})`, verify: "Verify on QNX" }[t]}
+                  {{ start: "Start here", why: "Why QNX?", audit: `Audit (${report.findings.length})`, pillars: "3-pillar report", kit: `Porting kit (${report.kit.length})`, verify: "Verify on QNX" }[t]}
                 </button>
               ))}
               {jobId && <a className="export" href={`api/jobs/${jobId}/report.md`} target="_blank" rel="noreferrer">report.md</a>}
               {jobId && <a className="export" href={`api/jobs/${jobId}/report.sarif`} target="_blank" rel="noreferrer">SARIF</a>}
             </nav>
+            {tab === "start" && <StartTab r={report} jobId={jobId} sample={jobId ? null : sample} env={env}
+              onOpenTab={setTab} onOpenSetup={() => setView("setup")} />}
             {tab === "why" && <WhyTab r={report} onOpenPillars={() => setTab("pillars")} />}
             {tab === "audit" && <AuditTab r={report} />}
             {tab === "pillars" && <PillarsTab r={report} />}

@@ -13,8 +13,15 @@ export interface Finding {
   rule_id: string; title: string; severity: Severity;
   sysroot_status: "available" | "missing" | "unknown_no_sdp";
   locations: SourceLocation[]; already_guarded: boolean; guidance: string;
-  alternatives: Alternative[]; link_libs: string[]; sysroot_detail: string;
+  alternatives: Alternative[]; link_libs: string[]; sysroot_detail: string; plain?: string;
 }
+export interface Concept { id: string; term: string; plain: string; analogy: string; why_here: string }
+export interface LearningStep {
+  n: number; title: string; why: string; how: string[]; done_when: string;
+  tab: "why" | "audit" | "pillars" | "kit" | "verify" | "setup" | null; optional: boolean;
+}
+export interface BeginnerGuide { intro: string; concepts: Concept[]; path: LearningStep[]; suggested_questions: string[] }
+export interface AskAnswer { answer: string; follow_ups: string[]; removed: number; model: string }
 export interface FeatureRecommendation {
   feature: string; apis: string[]; headers: string[]; target_component: string; rationale: string;
   relevance: number; diagram_mermaid: string | null; verified_in_sysroot: boolean;
@@ -37,7 +44,7 @@ export interface IntegrationReport {
   schema_version: "2.0"; repo_url: string; commit_sha: string; mode: "M1" | "M2" | "M3";
   sdp_version: string | null; languages: string[]; build_systems: string[]; readiness_score: number | null; applicable?: boolean;
   summary: string; findings: Finding[]; pillar1_features: FeatureRecommendation[];
-  benefits?: Benefit[]; qnx_fit?: QnxFit | null;
+  benefits?: Benefit[]; qnx_fit?: QnxFit | null; beginner?: BeginnerGuide | null;
   pillar2_improvements: Improvement[]; pillar3_steps: Step[]; kit: KitFile[];
   verification: VerificationRecord[]; unverified_claims_removed: number; roles: string[];
   service_name: string; generated_at_utc: string; sysroot_verified: boolean;

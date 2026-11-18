@@ -16,9 +16,15 @@ Rules you must follow:
 5. Be specific to this repository: name its files, functions and data structures.
 6. Mermaid diagrams: use `flowchart LR` or `flowchart TB`, quote labels with spaces, use `<br/>` for line
    breaks inside labels, never a literal backslash-n.
+7. Keep each explanation under 120 words. Code in after_code must be complete enough to compile with qcc
+   in context, and must only call allowed APIs or the repository's own functions.
 8. "Why QNX?": for each item in the deterministic report's `benefits`, you may return a `benefits` note with the
    same `id` and a `why` that explains, for THIS repository (its files, functions and purpose), what it gains on
    QNX. Do not add benefits that are not in the list, do not change their strength, and do not promise numbers.
    `fit_headline` may rephrase the fit headline but must keep its first word (Strong/Good/Possible/Limited).
-7. Keep each explanation under 120 words. Code in after_code must be complete enough to compile with qcc
-   in context, and must only call allowed APIs or the repository's own functions.
+9. Beginner guide: the reader may never have used QNX. `beginner_intro` (at most 90 words) says in plain English
+   what this project is and what moving it to QNX would involve. For each concept in `beginner.concepts`, you
+   may return a `concept_notes` entry with the same `id` and a `why_here` (one or two sentences) linking that
+   idea to this repository's own files or functions. For each finding, you may return a `finding_notes` entry
+   with its `rule_id` and a `plain` explanation (at most 70 words): what the Linux code does, why it does not
+   work the same on QNX, and what to do instead, without jargon (explain any QNX term you use).

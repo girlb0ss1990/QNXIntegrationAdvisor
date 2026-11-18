@@ -1,0 +1,125 @@
+# "Start here": QNX ideas explained for developers who have never used QNX.
+#
+# A concept is shown when `always: true`, or when one of its `features` is recommended for the repository
+# (Pillar 1). Plain English, no performance numbers, reviewed by hand. Placeholder: {service}.
+
+sdp_and_target:
+  always: true
+  order: 1
+  term: Host, target and the QNX SDP
+  plain: >-
+    You write and compile code on your normal PC (the "host"), and it runs on a separate QNX machine (the
+    "target"). The free QNX SDP gives your PC the QNX compiler, qcc, and the QNX libraries. The target can be
+    real hardware or a QNX virtual machine on your PC, which is what this tool starts for you.
+  analogy: Like building a phone app on a laptop and running it on the phone.
+  why_here: >-
+    {service} is compiled on your PC with qcc and then copied to the QNX virtual machine to run.
+
+posix:
+  always: true
+  order: 2
+  term: Most of your code already fits
+  plain: >-
+    QNX follows the POSIX standard, the same family of APIs that Linux uses for files, threads, sockets and
+    timers. Ordinary C and C++ code usually compiles unchanged. The work is in the Linux-only parts, which the
+    Audit tab lists one by one.
+  analogy: Moving house in the same city. Most things come with you; a few appliances need a different plug.
+  why_here: >-
+    Only the places the audit lists need attention. The rest of {service} should carry over as it is.
+
+microkernel:
+  always: true
+  order: 3
+  term: A tiny kernel, everything else is a normal program
+  plain: >-
+    On Linux, drivers and many services run inside the kernel, so a bug in one can crash the whole machine.
+    QNX keeps the kernel very small. It only schedules threads, passes messages and handles interrupts. Drivers,
+    file systems and networking run as ordinary programs with their own protected memory, so one failing does
+    not take the others down, and it can simply be restarted.
+  analogy: Separate shops in a mall instead of one big store. If one closes, the rest stay open.
+  why_here: >-
+    On QNX, {service} runs as its own protected process, so a fault in it cannot corrupt the rest of the system.
+
+message_passing:
+  always: true
+  order: 4
+  term: Programs talk by sending messages
+  plain: >-
+    In QNX, almost everything is done by one program sending a message to another and waiting for the reply.
+    Even reading a file is a message to the file-system program. Messages are fast and carry the sender's
+    priority, so an urgent request is handled urgently.
+  analogy: Passing a note across a desk and waiting for the answer, with urgent notes jumping the queue.
+  why_here: >-
+    Other programs can talk to {service} with messages instead of Linux-specific event or IPC mechanisms.
+
+resource_manager:
+  features: [resource_manager]
+  order: 5
+  term: Resource managers, a service that looks like a file
+  plain: >-
+    A resource manager is a QNX program that appears as a name such as /dev/something. Other programs use it
+    with normal open(), read(), write() and devctl() calls, and QNX turns each call into a message to your
+    program. This is how QNX drivers and services are usually built.
+  analogy: A shop with a street address. Anyone who knows the address can walk in and ask for something.
+  why_here: >-
+    The porting kit already contains a resource manager that makes {service} appear as /dev/{service}.
+
+pulses:
+  features: [channels_pulses]
+  order: 6
+  term: Pulses, tiny messages for timers and events
+  plain: >-
+    A pulse is a very small one-way message, often sent by a timer or an interrupt. One thread can wait on a
+    single "channel" for every kind of event (timer ticks, notifications, requests) and handle them in priority
+    order. This replaces Linux's epoll, timerfd and eventfd loops.
+  analogy: A doorbell. It carries no letter, just "something needs you now", and different bells ring differently.
+  why_here: >-
+    {service}'s Linux event loop or timers become a QNX channel that receives pulses.
+
+realtime:
+  features: [priority_inheritance, sporadic_scheduling, runmask_affinity, cpu_time_budget_monitoring]
+  order: 7
+  term: Real-time, the right code runs at the right time
+  plain: >-
+    QNX always runs the highest-priority thread that is ready. A low-priority task cannot delay an urgent one,
+    even when the computer is busy. QNX also stops "priority inversion" (a low-priority thread holding a lock
+    that an urgent thread needs), can cap how much CPU background work gets, and can pin a thread to one core.
+  analogy: An ambulance lane. Emergency traffic always gets through, however busy the road is.
+  why_here: >-
+    {service} has timing-sensitive code; the 3-pillar report shows which QNX scheduling features apply and where.
+
+abilities:
+  features: [procmgr_ability, secpol]
+  order: 8
+  term: Abilities, root powers split into small pieces
+  plain: >-
+    Instead of "root can do everything", QNX splits root's power into separate abilities, such as creating a
+    /dev name or raising thread priority. A program keeps only the abilities it needs and then runs as a normal
+    user, so a security bug in it can do much less damage.
+  analogy: Giving a contractor a key to one room instead of the whole building.
+  why_here: >-
+    {service} can drop to an ordinary user after start-up and keep only the abilities it really needs.
+
+recovery:
+  features: [ham]
+  order: 9
+  term: Watching and restarting programs
+  plain: >-
+    Because services are separate programs, QNX can notice the moment one dies and start it again without
+    rebooting. The process manager can send a notification when a program exits, and a small supervisor
+    program can restart it.
+  analogy: A stage manager who notices an actor is missing and sends in the understudy straight away.
+  why_here: >-
+    The steps show how to replace {service}'s Linux supervision (such as systemd) with QNX start-up and restart.
+
+observability:
+  features: [slog2, tracelogger]
+  order: 10
+  term: Seeing what the system did
+  plain: >-
+    QNX has a fast system log (slog2) and a kernel tracer (tracelogger) that records which thread ran, which
+    messages were sent and which interrupts arrived, with timestamps. It's the main tool for finding out why
+    something was late.
+  analogy: A flight recorder for your software.
+  why_here: >-
+    When you test {service}'s timing on QNX, a trace shows exactly what ran and when.

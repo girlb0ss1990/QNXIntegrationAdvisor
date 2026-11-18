@@ -41,6 +41,7 @@ class Finding(BaseModel):
     alternatives: list[Alternative] = []
     link_libs: list[str] = []             # e.g. ["fsnotify"] for inotify
     sysroot_detail: str = ""              # e.g. "inotify_add_watch found in libfsnotify.so"
+    plain: str = ""                       # AI-assisted: what this means, for someone new to QNX
 
 
 class FeatureRecommendation(BaseModel):          # Pillar 1
@@ -80,6 +81,31 @@ class QnxFit(BaseModel):
     headline: str
     reasons: list[str] = []
     caveats: list[str] = []
+
+
+class Concept(BaseModel):                         # "Start here": QNX ideas for newcomers
+    id: str
+    term: str
+    plain: str
+    analogy: str = ""
+    why_here: str = ""
+
+
+class LearningStep(BaseModel):
+    n: int
+    title: str
+    why: str
+    how: list[str] = []
+    done_when: str = ""
+    tab: Optional[Literal["why", "audit", "pillars", "kit", "verify", "setup"]] = None
+    optional: bool = False
+
+
+class BeginnerGuide(BaseModel):
+    intro: str
+    concepts: list[Concept] = []
+    path: list[LearningStep] = []
+    suggested_questions: list[str] = []
 
 
 class Step(BaseModel):                            # Pillar 3
@@ -129,6 +155,7 @@ class IntegrationReport(BaseModel):
     findings: list[Finding] = []
     benefits: list[Benefit] = []
     qnx_fit: Optional[QnxFit] = None
+    beginner: Optional[BeginnerGuide] = None
     pillar1_features: list[FeatureRecommendation] = []
     pillar2_improvements: list[Improvement] = []
     pillar3_steps: list[Step] = []

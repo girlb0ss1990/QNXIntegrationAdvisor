@@ -58,20 +58,39 @@ class LLMBenefitNote(BaseModel):
     why: str
 
 
+class LLMConceptNote(BaseModel):
+    id: str
+    why_here: str
+
+
+class LLMFindingNote(BaseModel):
+    rule_id: str
+    plain: str
+
+
 class LLMEnrichment(BaseModel):
     summary: str
     fit_headline: Optional[str] = None
+    beginner_intro: Optional[str] = None
+    concept_notes: list[LLMConceptNote] = Field(default_factory=list)
+    finding_notes: list[LLMFindingNote] = Field(default_factory=list)
     benefits: list[LLMBenefitNote] = Field(default_factory=list)
     features: list[LLMFeatureNote] = Field(default_factory=list)
     steps: list[LLMStepNote] = Field(default_factory=list)
     extra_improvements: list[LLMImprovement] = Field(default_factory=list, max_length=5)
 
 
+class LLMAnswer(BaseModel):
+    """'Ask the advisor': an answer for a developer who may be new to QNX."""
+    answer: str
+    follow_ups: list[str] = Field(default_factory=list, max_length=3)
+
+
 class Provider(Protocol):
     name: str
     model: str
 
-    def generate_structured(self, system: str, user: str) -> LLMEnrichment: ...
+    def generate_structured(self, system: str, user: str, schema: type[BaseModel] = ...) -> BaseModel: ...
 
 
 class LLMError(RuntimeError):
@@ -85,7 +104,7 @@ class ClaudeProvider:
     def __init__(self, model: str | None = None):
         self.model = model or os.environ.get("QNX_ADVISOR_MODEL", "claude-opus-5-5")
 
-    def generate_structured(self, system: str, user: str) -> LLMEnrichment:
+    def generate_structured(self, system: str, user: str, schema: type[BaseModel] = LLMEnrichment) -> BaseModel:
         try:
             import anthropic
         except ImportError as e:
@@ -97,7 +116,7 @@ class ClaudeProvider:
                 max_tokens=16000,
                 system=system,
                 messages=[{"role": "user", "content": user}],
-                output_format=LLMEnrichment,
+                output_format=schema,
             )
         except anthropic.APIConnectionError as e:
             raise LLMError(f"Claude API unreachable: {e}") from e
@@ -120,16 +139,15 @@ class _JsonRestProvider:
     def _call(self, system: str, user: str) -> str:  # pragma: no cover - network
         raise NotImplementedError
 
-    def generate_structured(self, system: str, user: str) -> LLMEnrichment:
-        schema = json.dumps(LLMEnrichment.model_json_schema())
-        prompt = f"{user}\n\nReturn only JSON matching this JSON Schema:\n{schema}"
+    def generate_structured(self, system: str, user: str, schema: type[BaseModel] = LLMEnrichment) -> BaseModel:
+        prompt = f"{user}\n\nReturn only JSON matching this JSON Schema:\n{json.dumps(schema.model_json_schema())}"
         last_err = ""
         for _ in range(3):                      # first try + 2 repair retries
             text = self._call(system, prompt if not last_err else
                               f"{prompt}\n\nYour previous output was invalid: {last_err[:800]}. Return corrected JSON only.")
             text = re.sub(r"^```(?:json)?\s*|\s*```$", "", text.strip())
             try:
-                return LLMEnrichment.model_validate_json(text)
+                return schema.model_validate_json(text)
             except ValidationError as e:
                 last_err = str(e)
         raise LLMError(f"{self.name}: invalid JSON after 2 repair attempts")
@@ -254,7 +272,8 @@ def _excerpts(sr: ScanResult, report: IntegrationReport) -> list[dict]:
 
 
 def build_user_prompt(sr: ScanResult, report: IntegrationReport, idx: SysrootIndex | None, allowed: set[str]) -> str:
-    det = report.model_dump(include={"summary", "roles", "service_name", "findings", "benefits", "qnx_fit", "pillar1_features",
+    det = report.model_dump(include={"summary", "roles", "service_name", "findings", "benefits", "qnx_fit", "beginner",
+                                     "pillar1_features",
                                      "pillar2_improvements", "pillar3_steps"})
     for f in det["findings"]:
         for loc in f["locations"]:
@@ -267,7 +286,8 @@ def build_user_prompt(sr: ScanResult, report: IntegrationReport, idx: SysrootInd
         "<repo_excerpts>\n" + json.dumps(_excerpts(sr, report), indent=1) + "\n</repo_excerpts>\n"
         "Improve the report for this specific repository: a 3-5 sentence summary, a repo-specific rationale "
         "(and optionally a diagram) for each recommended feature, clearer explanations (and optionally better "
-        "after_code) for the steps by number, and up to 5 extra improvements that cite a real file and line."
+        "after_code) for the steps by number, and up to 5 extra improvements that cite a real file and line. "
+        "Also write the beginner guide notes (rule 9) for a developer who has never used QNX."
     )
 
 
@@ -328,6 +348,24 @@ def apply_enrichment(report: IntegrationReport, e: LLMEnrichment, guard: Guard, 
                 f.diagram_mermaid = note.diagram_mermaid.strip()
             else:
                 guard._flag("diagram")
+    if r.beginner:
+        if e.beginner_intro:
+            t = guard.filter_text(e.beginner_intro)
+            if t:
+                r.beginner.intro = t
+        cons = {c.id: c for c in r.beginner.concepts}
+        for cn in e.concept_notes:
+            c = cons.get(cn.id)
+            t = guard.filter_text(cn.why_here) if c else ""
+            if c and t:
+                c.why_here = t
+    by_rule: dict[str, list] = {}
+    for f in r.findings:
+        by_rule.setdefault(f.rule_id, []).append(f)
+    for fn in e.finding_notes:
+        t = guard.filter_text(fn.plain) if fn.rule_id in by_rule else ""
+        for f in (by_rule.get(fn.rule_id, []) if t else []):
+            f.plain = t
     if e.fit_headline and r.qnx_fit:
         h = guard.filter_text(e.fit_headline)
         if h and h.split(":")[0].strip().lower() == r.qnx_fit.headline.split(":")[0].strip().lower():
@@ -368,3 +406,79 @@ def apply_enrichment(report: IntegrationReport, e: LLMEnrichment, guard: Guard, 
     r.unverified_claims_removed += guard.result.removed
     r.mode = "M2" if r.mode == "M1" else r.mode
     return r
+
+
+# ---------------------------------------------------------------- "Ask the advisor"
+MAX_QUESTION_CHARS, MAX_HISTORY = 1000, 6
+_FENCE = re.compile(r"(```[^\n]*\n.*?```)", re.S)
+
+
+def _ask_context(report: IntegrationReport, excerpts: list[dict]) -> str:
+    ctx = report.model_dump(include={"repo_url", "summary", "service_name", "roles", "qnx_fit", "sdp_version",
+                                     "sysroot_verified", "readiness_score"})
+    ctx["benefits"] = [{"title": b.title, "strength": b.strength, "why": b.why} for b in report.benefits]
+    ctx["findings"] = [{"rule_id": f.rule_id, "title": f.title, "severity": f.severity, "guidance": f.guidance,
+                        "where": [f"{loc.file_path}:{loc.line_start}" for loc in f.locations[:3]],
+                        "qnx_alternatives": [a.model_dump() for a in f.alternatives]} for f in report.findings]
+    ctx["qnx_features"] = [{"feature": f.feature, "apis": f.apis, "headers": f.headers, "rationale": f.rationale}
+                           for f in report.pillar1_features]
+    ctx["steps"] = [{"n": st.n, "title": st.title, "explanation": st.explanation, "verify_command": st.verify_command,
+                     "effort": st.est_effort} for st in report.pillar3_steps]
+    ctx["porting_kit_files"] = [{"path": k.path, "description": k.description} for k in report.kit]
+    ctx["verification_records"] = [v.model_dump(exclude={"binary_sha256"}) for v in report.verification]
+    if report.beginner:
+        ctx["beginner_path"] = [st.title for st in report.beginner.path]
+    return ("<report>\n" + json.dumps(ctx, indent=1)[:50000] + "\n</report>\n"
+            "<repo_excerpts>\n" + json.dumps(excerpts[:12], indent=1)[:20000] + "\n</repo_excerpts>\n")
+
+
+def guard_answer(text: str, guard: Guard, measured: bool) -> str:
+    """Keep the answer's line breaks and code blocks, but run every line and block through the guard."""
+    out = []
+    for part in _FENCE.split(text or ""):
+        if part.startswith("```"):
+            body = re.sub(r"^```[^\n]*\n|```$", "", part)
+            out.append(part if guard.filter_code(body) else
+                       "_(A code example was removed because it used functions that could not be verified "
+                       "against your QNX SDP.)_")
+            continue
+        lines = []
+        for line in part.split("\n"):
+            m = re.match(r"^(\s*(?:[-*]|\d+\.|#+)\s+)?(.*)$", line)
+            prefix, body = (m.group(1) or ""), m.group(2)
+            kept = guard.filter_text(body, measured=measured) if body.strip() else body
+            if kept or not body.strip():
+                lines.append(prefix + kept)
+        out.append("\n".join(lines))
+    return "".join(out).strip()
+
+
+def ask(report: IntegrationReport, question: str, history: list[dict], provider: Provider,
+        idx: SysrootIndex | None, repo_symbols: set[str], excerpts: list[dict]) -> dict:
+    """Answer a question about this report for someone who may be new to QNX. Raises LLMError."""
+    question = (question or "").strip()[:MAX_QUESTION_CHARS]
+    if not question:
+        raise LLMError("empty question")
+    turns = []
+    for h in history[-MAX_HISTORY:]:
+        role = "Developer" if h.get("role") == "user" else "Advisor"
+        turns.append(f"{role}: {str(h.get('text', ''))[:3000]}")
+    user = (_ask_context(report, excerpts)
+            + ("<conversation_so_far>\n" + "\n\n".join(turns) + "\n</conversation_so_far>\n" if turns else "")
+            + "<question>\n" + question + "\n</question>")
+    system = (PROMPTS / "ask.md").read_text(encoding="utf-8")
+    try:
+        a = provider.generate_structured(system, user, LLMAnswer)
+    except LLMError:
+        raise
+    except Exception as e:  # provider SDK/network surprises
+        raise LLMError(type(e).__name__) from e
+    assert isinstance(a, LLMAnswer)
+    guard = Guard(idx, repo_symbols)
+    answer = guard_answer(a.answer, guard, measured=bool(report.verification))
+    follow = [q for q in (guard.filter_text(f) for f in a.follow_ups) if q][:3]
+    if not answer:
+        answer = ("I couldn't give an answer that passed the fact check against your QNX SDP. "
+                  "Try asking in a different way, or about a specific finding or step.")
+    return {"answer": answer, "follow_ups": follow, "removed": guard.result.removed,
+            "model": f"{provider.name}:{provider.model}"}

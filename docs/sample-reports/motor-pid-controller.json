@@ -74,7 +74,8 @@
     }
    ],
    "link_libs": [],
-   "sysroot_detail": "epoll_wait: not exported by any sysroot library; <sys/epoll.h> not in sysroot"
+   "sysroot_detail": "epoll_wait: not exported by any sysroot library; <sys/epoll.h> not in sysroot",
+   "plain": ""
   },
   {
    "rule_id": "LNX-TIMERFD",
@@ -125,7 +126,8 @@
     }
    ],
    "link_libs": [],
-   "sysroot_detail": "timerfd_create: not exported by any sysroot library; <sys/timerfd.h> not in sysroot"
+   "sysroot_detail": "timerfd_create: not exported by any sysroot library; <sys/timerfd.h> not in sysroot",
+   "plain": ""
   },
   {
    "rule_id": "LNX-SYSFS",
@@ -157,7 +159,8 @@
     }
    ],
    "link_libs": [],
-   "sysroot_detail": ""
+   "sysroot_detail": "",
+   "plain": ""
   },
   {
    "rule_id": "BLD-COMPILER",
@@ -188,7 +191,8 @@
     }
    ],
    "link_libs": [],
-   "sysroot_detail": ""
+   "sysroot_detail": "",
+   "plain": ""
   },
   {
    "rule_id": "LNX-AFFINITY",
@@ -223,7 +227,8 @@
     }
    ],
    "link_libs": [],
-   "sysroot_detail": "sched_setaffinity: not exported by any sysroot library"
+   "sysroot_detail": "sched_setaffinity: not exported by any sysroot library",
+   "plain": ""
   },
   {
    "rule_id": "LNX-IOCTL",
@@ -255,7 +260,8 @@
     }
    ],
    "link_libs": [],
-   "sysroot_detail": ""
+   "sysroot_detail": "",
+   "plain": ""
   },
   {
    "rule_id": "LNX-LIBS",
@@ -284,7 +290,8 @@
     }
    ],
    "link_libs": [],
-   "sysroot_detail": "not in sysroot lib dirs: libpthread, librt (provided by libc on QNX)"
+   "sysroot_detail": "not in sysroot lib dirs: libpthread, librt (provided by libc on QNX)",
+   "plain": ""
   },
   {
    "rule_id": "LNX-PRIO-INV",
@@ -321,7 +328,8 @@
     }
    ],
    "link_libs": [],
-   "sysroot_detail": ""
+   "sysroot_detail": "",
+   "plain": ""
   },
   {
    "rule_id": "LNX-SYSTEMD",
@@ -352,7 +360,8 @@
     }
    ],
    "link_libs": [],
-   "sysroot_detail": ""
+   "sysroot_detail": "",
+   "plain": ""
   },
   {
    "rule_id": "LNX-CPU-BUDGET",
@@ -390,7 +399,8 @@
     }
    ],
    "link_libs": [],
-   "sysroot_detail": ""
+   "sysroot_detail": "",
+   "plain": ""
   },
   {
    "rule_id": "LNX-INOTIFY",
@@ -431,7 +441,8 @@
    "link_libs": [
     "fsnotify"
    ],
-   "sysroot_detail": "inotify_add_watch: libfsnotify; <sys/inotify.h> present"
+   "sysroot_detail": "inotify_add_watch: libfsnotify; <sys/inotify.h> present",
+   "plain": ""
   },
   {
    "rule_id": "LNX-PERIODIC-SLEEP",
@@ -474,7 +485,8 @@
     }
    ],
    "link_libs": [],
-   "sysroot_detail": ""
+   "sysroot_detail": "",
+   "plain": ""
   }
  ],
  "benefits": [
@@ -608,6 +620,175 @@
   "caveats": [
    "Porting effort: 3 blocker/high finding(s) need code changes first (see the Audit tab and the step-by-step guide).",
    "These are capabilities QNX provides, not measurements. Use the Verify tab on a QNX target before relying on timing."
+  ]
+ },
+ "beginner": {
+  "intro": "New to QNX? Start here. QNX is a strong fit: this is the kind of time-critical, device or service code QNX is built for. The tool found 12 place(s) in motor_pid that use Linux-only features, 2 of which must change before it builds on QNX. Below are the QNX ideas you need for this project, then a step-by-step path from where you are now to running on QNX.",
+  "concepts": [
+   {
+    "id": "sdp_and_target",
+    "term": "Host, target and the QNX SDP",
+    "plain": "You write and compile code on your normal PC (the \"host\"), and it runs on a separate QNX machine (the \"target\"). The free QNX SDP gives your PC the QNX compiler, qcc, and the QNX libraries. The target can be real hardware or a QNX virtual machine on your PC, which is what this tool starts for you.",
+    "analogy": "Like building a phone app on a laptop and running it on the phone.",
+    "why_here": "motor_pid is compiled on your PC with qcc and then copied to the QNX virtual machine to run."
+   },
+   {
+    "id": "posix",
+    "term": "Most of your code already fits",
+    "plain": "QNX follows the POSIX standard, the same family of APIs that Linux uses for files, threads, sockets and timers. Ordinary C and C++ code usually compiles unchanged. The work is in the Linux-only parts, which the Audit tab lists one by one.",
+    "analogy": "Moving house in the same city. Most things come with you; a few appliances need a different plug.",
+    "why_here": "Only the places the audit lists need attention. The rest of motor_pid should carry over as it is."
+   },
+   {
+    "id": "microkernel",
+    "term": "A tiny kernel, everything else is a normal program",
+    "plain": "On Linux, drivers and many services run inside the kernel, so a bug in one can crash the whole machine. QNX keeps the kernel very small. It only schedules threads, passes messages and handles interrupts. Drivers, file systems and networking run as ordinary programs with their own protected memory, so one failing does not take the others down, and it can simply be restarted.",
+    "analogy": "Separate shops in a mall instead of one big store. If one closes, the rest stay open.",
+    "why_here": "On QNX, motor_pid runs as its own protected process, so a fault in it cannot corrupt the rest of the system."
+   },
+   {
+    "id": "message_passing",
+    "term": "Programs talk by sending messages",
+    "plain": "In QNX, almost everything is done by one program sending a message to another and waiting for the reply. Even reading a file is a message to the file-system program. Messages are fast and carry the sender's priority, so an urgent request is handled urgently.",
+    "analogy": "Passing a note across a desk and waiting for the answer, with urgent notes jumping the queue.",
+    "why_here": "Other programs can talk to motor_pid with messages instead of Linux-specific event or IPC mechanisms."
+   },
+   {
+    "id": "resource_manager",
+    "term": "Resource managers, a service that looks like a file",
+    "plain": "A resource manager is a QNX program that appears as a name such as /dev/something. Other programs use it with normal open(), read(), write() and devctl() calls, and QNX turns each call into a message to your program. This is how QNX drivers and services are usually built.",
+    "analogy": "A shop with a street address. Anyone who knows the address can walk in and ask for something.",
+    "why_here": "The porting kit already contains a resource manager that makes motor_pid appear as /dev/motor_pid."
+   },
+   {
+    "id": "pulses",
+    "term": "Pulses, tiny messages for timers and events",
+    "plain": "A pulse is a very small one-way message, often sent by a timer or an interrupt. One thread can wait on a single \"channel\" for every kind of event (timer ticks, notifications, requests) and handle them in priority order. This replaces Linux's epoll, timerfd and eventfd loops.",
+    "analogy": "A doorbell. It carries no letter, just \"something needs you now\", and different bells ring differently.",
+    "why_here": "motor_pid's Linux event loop or timers become a QNX channel that receives pulses."
+   },
+   {
+    "id": "realtime",
+    "term": "Real-time, the right code runs at the right time",
+    "plain": "QNX always runs the highest-priority thread that is ready. A low-priority task cannot delay an urgent one, even when the computer is busy. QNX also stops \"priority inversion\" (a low-priority thread holding a lock that an urgent thread needs), can cap how much CPU background work gets, and can pin a thread to one core.",
+    "analogy": "An ambulance lane. Emergency traffic always gets through, however busy the road is.",
+    "why_here": "motor_pid has timing-sensitive code; the 3-pillar report shows which QNX scheduling features apply and where."
+   },
+   {
+    "id": "recovery",
+    "term": "Watching and restarting programs",
+    "plain": "Because services are separate programs, QNX can notice the moment one dies and start it again without rebooting. The process manager can send a notification when a program exits, and a small supervisor program can restart it.",
+    "analogy": "A stage manager who notices an actor is missing and sends in the understudy straight away.",
+    "why_here": "The steps show how to replace motor_pid's Linux supervision (such as systemd) with QNX start-up and restart."
+   },
+   {
+    "id": "observability",
+    "term": "Seeing what the system did",
+    "plain": "QNX has a fast system log (slog2) and a kernel tracer (tracelogger) that records which thread ran, which messages were sent and which interrupts arrived, with timestamps. It's the main tool for finding out why something was late.",
+    "analogy": "A flight recorder for your software.",
+    "why_here": "When you test motor_pid's timing on QNX, a trace shows exactly what ran and when."
+   }
+  ],
+  "path": [
+   {
+    "n": 1,
+    "title": "Learn the big ideas (5 minutes)",
+    "why": "A few QNX ideas explain almost everything in this report.",
+    "how": [
+     "Read the cards in “QNX in a few ideas” below.",
+     "Then open the Why QNX? tab to see which of them matter for this project, with evidence."
+    ],
+    "done_when": "You can say in one sentence why this project would (or would not) benefit from QNX.",
+    "tab": "why",
+    "optional": false
+   },
+   {
+    "n": 2,
+    "title": "See QNX running on your PC",
+    "why": "You don't need special hardware. A QNX 8.0 virtual machine runs inside your computer.",
+    "how": [
+     "Open ⚙ Setup.",
+     "If “QNX 8.0 target” is not green, press Start QNX virtual machine and wait about a minute."
+    ],
+    "done_when": "Setup shows “QNX 8.0 target: Ready”.",
+    "tab": "setup",
+    "optional": false
+   },
+   {
+    "n": 3,
+    "title": "Run the generated motor_pid code on QNX",
+    "why": "This proves the generated starting point builds with qcc and runs on QNX before you change your own code.",
+    "how": [
+     "Open the Verify on QNX tab.",
+     "Press Run on QNX 8.0 and watch the log."
+    ],
+    "done_when": "Every line of the result checklist shows ✓.",
+    "tab": "verify",
+    "optional": false
+   },
+   {
+    "n": 4,
+    "title": "Fix what stops the code from building on QNX",
+    "why": "Blockers use Linux-only features that don't exist on QNX, so they must be changed first. High items build, but behave differently.",
+    "how": [
+     "epoll event loop (src/main.c:13): see the Audit tab for the QNX replacement.",
+     "timerfd periodic timer (src/main.c:15): see the Audit tab for the QNX replacement.",
+     "Linux /sys paths (src/motor_io.c:16): see the Audit tab for the QNX replacement."
+    ],
+    "done_when": "The Audit tab has no blockers left when you analyze your updated code.",
+    "tab": "audit",
+    "optional": false
+   },
+   {
+    "n": 5,
+    "title": "Build your own project with the QNX compiler",
+    "why": "Building often (and early) shows the remaining problems as compiler errors.",
+    "how": [
+     "Download the porting kit (Porting kit tab) and copy its cmake/ and include/ folders into your project.",
+     "In WSL or Linux, load the QNX tools: `source ~/qnx800/qnxsdp-env.sh`",
+     "Then build: `cmake -B build-qnx -DCMAKE_TOOLCHAIN_FILE=cmake/qnx8-toolchain.cmake && cmake --build build-qnx`",
+     "`PORTING_GUIDE.md` in the kit explains each file."
+    ],
+    "done_when": "The build finishes without errors.",
+    "tab": "kit",
+    "optional": false
+   },
+   {
+    "n": 6,
+    "title": "Work through the 12 porting steps",
+    "why": "Each step changes one thing, shows the code before and after, and gives a command to check it.",
+    "how": [
+     "Step 1: Cross-compile with the QNX 8.0 toolchain (effort S)",
+     "Step 2: Replace the epoll loop (effort M)",
+     "Step 3: Remove sysfs dependencies (effort M)",
+     "Step 4: Wrap device control in a HAL (effort M)",
+     "Step 5: Expose the service as a /dev/motor_pid resource manager (effort L)",
+     "Step 6: Replace timerfd with a pulse-delivering POSIX timer (effort M)",
+     "…and the rest in the 3-pillar report."
+    ],
+    "done_when": "Every step's check command succeeds.",
+    "tab": "pillars",
+    "optional": false
+   },
+   {
+    "n": 7,
+    "title": "Test on real hardware when timing matters",
+    "why": "A virtual machine shares your PC with everything else, so its timings are only a rough guide.",
+    "how": [
+     "QNX 8.0 runs on a Raspberry Pi 5; build for aarch64le (the arch selector next to Analyze).",
+     "Run the same verification against the board."
+    ],
+    "done_when": "You have measurements from the hardware you will ship on.",
+    "tab": "verify",
+    "optional": true
+   }
+  ],
+  "suggested_questions": [
+   "What is QNX, and why would I use it instead of Linux?",
+   "What should I do first?",
+   "Explain “epoll event loop” in plain English. How do I fix it?",
+   "What is a resource manager, and how would /dev/motor_pid be used?",
+   "How do I test this on the QNX virtual machine?"
   ]
  },
  "pillar1_features": [
@@ -982,7 +1163,7 @@
    "explanation": "Start with poll() so the code builds and runs on QNX. Once it works, consider moving to a channel + pulse loop (see the resource-manager step) where each event source has its own pulse code and priority.",
    "before_code": "/* src/main.c */\nint ep = epoll_create1(0);\nstruct epoll_event ev = { .events = EPOLLIN };\nev.data.fd = tfd; epoll_ctl(ep, EPOLL_CTL_ADD, tfd, &ev);\nif (cfd >= 0) { ev.data.fd = cfd; epoll_ctl(ep, EPOLL_CTL_ADD, cfd, &ev); }",
    "after_code": "#include <poll.h>\n\nstruct pollfd pfd[2] = {\n    { .fd = tfd, .events = POLLIN },\n    { .fd = cfd, .events = POLLIN },\n};\nint n = poll(pfd, 2, -1);\nif (n > 0 && (pfd[0].revents & POLLIN)) {\n    /* periodic work */\n}",
-   "qcc_syntax_check": "skipped",
+   "qcc_syntax_check": "failed",
    "verify_command": "qcc -Vgcc_ntox86_64 -fsyntax-only src/main.c",
    "est_effort": "M"
   },
@@ -1010,7 +1191,7 @@
    "explanation": "Move ioctl() calls behind functions such as hal_set_line(); implement the QNX side with devctl().",
    "before_code": "/* src/motor_io.c */\nint bits = TIOCM_DTR;\nioctl(enc_fd, TIOCMBIS, &bits);       /* wake the encoder bridge */\n\npwm_fd = open(pwm_path, O_WRONLY);",
    "after_code": "/* hal.h */\nint hal_serial_set_dtr(int fd, int on);\n\n/* hal_qnx.c */\n#include <devctl.h>\n#include <sys/dcmd_chr.h>\nint hal_serial_set_dtr(int fd, int on)\n{\n    int bits = on ? (_SERCTL_DTR | _SERCTL_DTR_CHG) : _SERCTL_DTR_CHG;\n    return devctl(fd, DCMD_CHR_SERCTL, &bits, sizeof bits, NULL);\n}",
-   "qcc_syntax_check": "skipped",
+   "qcc_syntax_check": "failed",
    "verify_command": "qcc -Vgcc_ntox86_64 -fsyntax-only src/hal_qnx.c",
    "est_effort": "M"
   },
@@ -1025,7 +1206,7 @@
    "explanation": "Start from the kit's resource-manager skeleton. Clients open /dev/motor_pid and use read(), write() and devctl() instead of a private socket or shared memory. The periodic work moves into the timer pulse handler, which runs serialized with client requests in one thread.",
    "before_code": null,
    "after_code": "static int io_devctl(resmgr_context_t *ctp, io_devctl_t *msg, RESMGR_OCB_T *ocb)\n{\n    int status = iofunc_devctl_default(ctp, msg, ocb);\n    if (status != _RESMGR_DEFAULT)\n        return status;\n\n    void  *data = _DEVCTL_DATA(msg->i);\n    size_t nbytes = 0;\n\n    switch (msg->i.dcmd) {\n    case DCMD_MOTOR_PID_GET_STATUS:\n        if (msg->i.nbytes < sizeof(state.status))\n            return EINVAL;\n        memcpy(data, &state.status, sizeof(state.status));\n        nbytes = sizeof(state.status);\n        break;\n    case DCMD_MOTOR_PID_SET_VALUE: {\n        int32_t v;\n        if (msg->i.nbytes < sizeof v)\n            return EINVAL;\n        if (resmgr_msgread(ctp, &v, sizeof v, sizeof msg->i) != (ssize_t)sizeof v)\n            return EFAULT;\n        state.status.value = v;\n        break;\n    }\n    default:\n        return ENOSYS;\n    }\n\n    memset(&msg->o, 0, sizeof msg->o);\n    msg->o.ret_val = EOK;\n    msg->o.nbytes = (uint32_t)nbytes;\n    return _RESMGR_PTR(ctp, &msg->o, sizeof msg->o + nbytes);\n}",
-   "qcc_syntax_check": "skipped",
+   "qcc_syntax_check": "failed",
    "verify_command": "ls -l /dev/motor_pid && motor_pidctl  # on the target",
    "est_effort": "L"
   },
@@ -1039,7 +1220,7 @@
    "explanation": "The kit's qnx_compat.h provides qnx_periodic_timer_create()/qnx_periodic_timer_wait() built on timer_create() + SIGEV_PULSE_INIT + MsgReceivePulse(). Keep the control-loop body unchanged.",
    "before_code": "/* src/main.c */\nint tfd = timerfd_create(CLOCK_MONOTONIC, 0);\nstruct itimerspec its = {\n    .it_interval = { 0, 1000000000L / LOOP_HZ },\n    .it_value    = { 0, 1000000000L / LOOP_HZ },\n};\ntimerfd_settime(tfd, 0, &its, NULL);\n\nint cfd = config_watch_start(cfg);",
    "after_code": "#include \"qnx_compat.h\"\n\nqnx_periodic_timer_t t;\nif (qnx_periodic_timer_create(&t, 1000000 /* ns */, 30 /* pulse prio */) != 0)\n    return 1;\nfor (;;) {\n    if (qnx_periodic_timer_wait(&t) != 0)\n        break;\n    /* control-loop body */\n}",
-   "qcc_syntax_check": "skipped",
+   "qcc_syntax_check": "failed",
    "verify_command": "qcc -Vgcc_ntox86_64 -fsyntax-only -Iinclude src/main.c",
    "est_effort": "M"
   },
@@ -1053,7 +1234,7 @@
    "explanation": "Replace sched_setaffinity() with ThreadCtl() and a run-mask.",
    "before_code": "/* src/main.c */\nCPU_ZERO(&set);\nCPU_SET(1, &set);\nif (sched_setaffinity(0, sizeof set, &set) != 0)\n    perror(\"sched_setaffinity\");",
    "after_code": "#include <sys/neutrino.h>\n\nunsigned mask[2] = { 1u << 1, 1u << 1 };   /* run mask, inherit mask: CPU 1 */\nif (ThreadCtl(_NTO_TCTL_RUNMASK_GET_AND_SET_INHERIT, mask) == -1)\n    perror(\"ThreadCtl runmask\");",
-   "qcc_syntax_check": "skipped",
+   "qcc_syntax_check": "failed",
    "verify_command": "pidin -p <service> -F '%a %b %N %i'  # on target",
    "est_effort": "S"
   },
@@ -1067,7 +1248,7 @@
    "explanation": "Initialize the mutex with a PTHREAD_PRIO_INHERIT attribute.",
    "before_code": "/* src/main.c */\npthread_mutex_init(&gains_lock, NULL);\nload_gains(cfg);",
    "after_code": "pthread_mutexattr_t ma;\npthread_mutexattr_init(&ma);\npthread_mutexattr_setprotocol(&ma, PTHREAD_PRIO_INHERIT);\npthread_mutex_init(&gains_lock, &ma);\npthread_mutexattr_destroy(&ma);",
-   "qcc_syntax_check": "skipped",
+   "qcc_syntax_check": "failed",
    "verify_command": "advisorctl bench-timer --load 4  # compare lateness before/after",
    "est_effort": "S"
   },
@@ -1081,7 +1262,7 @@
    "explanation": "Give the telemetry/worker thread a sporadic budget and low replenishment priority.",
    "before_code": "/* src/main.c */\nstruct sched_param sp = { .sched_priority = 80 };\npthread_setschedparam(pthread_self(), SCHED_FIFO, &sp);\n\nif (motor_io_open(NULL, NULL) != 0)",
    "after_code": "struct sched_param p = {0};\np.sched_priority = 20;                               /* normal priority */\np.sched_ss_low_priority = 8;                         /* after budget runs out */\np.sched_ss_max_repl = 4;\np.sched_ss_repl_period.tv_nsec = 100 * 1000 * 1000;  /* 100 ms */\np.sched_ss_init_budget.tv_nsec = 10 * 1000 * 1000;   /* 10 ms per period */\npthread_attr_setinheritsched(&attr, PTHREAD_EXPLICIT_SCHED);\npthread_attr_setschedpolicy(&attr, SCHED_SPORADIC);\npthread_attr_setschedparam(&attr, &p);",
-   "qcc_syntax_check": "skipped",
+   "qcc_syntax_check": "failed",
    "verify_command": "pidin -p <service> -F '%a %b %p %i'  # policy column shows sporadic",
    "est_effort": "M"
   },
@@ -1095,7 +1276,7 @@
    "explanation": "Replace relative sleeps in periodic loops with clock_nanosleep(TIMER_ABSTIME).",
    "before_code": "/* src/main.c */\n    double sp = setpoint_rpm;\n    usleep(2000);                        /* slow formatting while holding the lock */\n    pthread_mutex_unlock(&gains_lock);\n    printf(\"sp=%.0f rpm=%.1f duty=%.1f%%\\n\", sp, last_rpm, last_duty);\n    usleep(100000);\n}\nreturn NULL;",
    "after_code": "struct timespec next;\nclock_gettime(CLOCK_MONOTONIC, &next);\nfor (;;) {\n    do_work();\n    next.tv_nsec += PERIOD_NS;\n    while (next.tv_nsec >= 1000000000L) { next.tv_nsec -= 1000000000L; next.tv_sec++; }\n    clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &next, NULL);\n}",
-   "qcc_syntax_check": "skipped",
+   "qcc_syntax_check": "failed",
    "verify_command": "qcc -Vgcc_ntox86_64 -fsyntax-only src/main.c",
    "est_effort": "S"
   },
@@ -1109,7 +1290,7 @@
    "explanation": "Daemonize with procmgr_daemon() and register PROCMGR_EVENT_DAEMON_DEATH pulse notifications (or attach to HAM if installed).",
    "before_code": "[Unit]\nDescription=Motor PID controller (1 kHz)\nAfter=network.target\n\n[Service]\nType=simple\nExecStart=/usr/local/bin/motor_pid /etc/motor-pid/gains.conf\nRestart=always\nRestartSec=1\nCPUSchedulingPolicy=fifo\nCPUSchedulingPriority=80\nWatchdogSec=2",
    "after_code": "#include <sys/procmgr.h>\n#include <sys/siginfo.h>\n\nstruct sigevent ev;\nSIGEV_PULSE_INIT(&ev, main_coid, 20, PULSE_CODE_SHUTDOWN, 0);\nint handle = procmgr_event_notify_add(PROCMGR_EVENT_DAEMON_DEATH, &ev);\n(void)handle;",
-   "qcc_syntax_check": "skipped",
+   "qcc_syntax_check": "failed",
    "verify_command": "pidin -F '%a %b %N'  # on target, confirm supervised daemon running",
    "est_effort": "M"
   },
@@ -1146,31 +1327,31 @@
    "path": "include/qnx_compat.h",
    "description": "Only the compatibility shims this repo needs",
    "content": "/*\n * qnx_compat.h - generated by QNX Integration Advisor for motor-pid-controller.\n * Contains only the shims this repository needs:\n *   - qnx_periodic_timer_*: timerfd-like periodic timer (QNX: timer_create + pulse)\n * Licensed under Apache-2.0.\n */\n#ifndef QNX_COMPAT_H\n#define QNX_COMPAT_H\n\n#include <errno.h>\n#include <stdint.h>\n#include <time.h>\n#include <unistd.h>\n\n#ifdef __QNX__\n#include <sys/neutrino.h>\n#include <sys/siginfo.h>\n\n#ifdef _NTO_CHF_PRIVATE\n#define QNX_COMPAT_CHF _NTO_CHF_PRIVATE\n#else\n#define QNX_COMPAT_CHF 0\n#endif\n\n#define QNX_COMPAT_PULSE_TIMER   (_PULSE_CODE_MINAVAIL + 0)\n#endif /* __QNX__ */\n\n/* ------------------------------------------------------------------ periodic timer */\ntypedef struct {\n#ifdef __QNX__\n    int     chid;\n    int     coid;\n    timer_t timer;\n#else\n    int     fd;\n#endif\n} qnx_periodic_timer_t;\n\n#ifdef __QNX__\nstatic inline int qnx_periodic_timer_create(qnx_periodic_timer_t *t, uint64_t period_ns, int pulse_prio)\n{\n    struct sigevent   ev;\n    struct itimerspec its;\n\n    t->chid = ChannelCreate(QNX_COMPAT_CHF);\n    if (t->chid == -1)\n        return -1;\n    t->coid = ConnectAttach(0, 0, t->chid, _NTO_SIDE_CHANNEL, 0);\n    if (t->coid == -1) {\n        ChannelDestroy(t->chid);\n        return -1;\n    }\n    SIGEV_PULSE_INIT(&ev, t->coid, pulse_prio, QNX_COMPAT_PULSE_TIMER, 0);\n    if (timer_create(CLOCK_MONOTONIC, &ev, &t->timer) == -1) {\n        ConnectDetach(t->coid);\n        ChannelDestroy(t->chid);\n        return -1;\n    }\n    its.it_value.tv_sec  = (time_t)(period_ns / 1000000000ULL);\n    its.it_value.tv_nsec = (long)(period_ns % 1000000000ULL);\n    its.it_interval      = its.it_value;\n    if (timer_settime(t->timer, 0, &its, NULL) == -1) {\n        timer_delete(t->timer);\n        ConnectDetach(t->coid);\n        ChannelDestroy(t->chid);\n        return -1;\n    }\n    return 0;\n}\n\n/* Blocks until the next period. Other pulses on this private channel are ignored. */\nstatic inline int qnx_periodic_timer_wait(qnx_periodic_timer_t *t)\n{\n    struct _pulse p;\n    for (;;) {\n        if (MsgReceivePulse(t->chid, &p, sizeof p, NULL) == -1)\n            return -1;\n        if (p.code == QNX_COMPAT_PULSE_TIMER)\n            return 0;\n    }\n}\n\nstatic inline void qnx_periodic_timer_destroy(qnx_periodic_timer_t *t)\n{\n    timer_delete(t->timer);\n    ConnectDetach(t->coid);\n    ChannelDestroy(t->chid);\n}\n#else  /* Linux and other POSIX hosts keep the original timerfd behaviour */\n#include <sys/timerfd.h>\nstatic inline int qnx_periodic_timer_create(qnx_periodic_timer_t *t, uint64_t period_ns, int pulse_prio)\n{\n    struct itimerspec its;\n    (void)pulse_prio;\n    t->fd = timerfd_create(CLOCK_MONOTONIC, 0);\n    if (t->fd == -1)\n        return -1;\n    its.it_value.tv_sec  = (time_t)(period_ns / 1000000000ULL);\n    its.it_value.tv_nsec = (long)(period_ns % 1000000000ULL);\n    its.it_interval      = its.it_value;\n    return timerfd_settime(t->fd, 0, &its, NULL);\n}\n\nstatic inline int qnx_periodic_timer_wait(qnx_periodic_timer_t *t)\n{\n    uint64_t exp;\n    return read(t->fd, &exp, sizeof exp) == (ssize_t)sizeof exp ? 0 : -1;\n}\n\nstatic inline void qnx_periodic_timer_destroy(qnx_periodic_timer_t *t)\n{\n    close(t->fd);\n}\n#endif\n\n#endif /* QNX_COMPAT_H */\n",
-   "qcc_compiled": "skipped"
+   "qcc_compiled": "both"
   },
   {
    "path": "src/qnx_motor_pid_resmgr.c",
    "description": "Resource manager skeleton at /dev/motor_pid (dispatch/iofunc, pulse timer, procmgr_ability)",
    "content": "/*\n * qnx_motor_pid_resmgr.c - single-threaded QNX 8.0 resource manager skeleton at /dev/motor_pid.\n * Generated by QNX Integration Advisor for motor-pid-controller. Apache-2.0.\n *\n *   read()   -> text status line\n *   write()  -> sets an integer value (e.g. a setpoint)\n *   devctl() -> DCMD_MOTOR_PID_GET_STATUS / DCMD_MOTOR_PID_SET_VALUE (motor_pid_dcmd.h)\n *   periodic timer pulse (pulse_attach) -> tick_handler(), where the repo's loop body goes\n *\n * Build:  qcc -Vgcc_ntox86_64 -Wall -Wextra -Werror -Iinclude -Isrc -o motor_pid_resmgr src/qnx_motor_pid_resmgr.c\n * Run:    motor_pid_resmgr -p 1 -u 1000 &      (starts as root, drops to uid 1000)\n */\n#include <errno.h>\n#include <fcntl.h>\n#include <stdint.h>\n#include <stdio.h>\n#include <stdlib.h>\n#include <string.h>\n#include <time.h>\n#include <unistd.h>\n\n#include <devctl.h>\n#include <sys/iofunc.h>\n#include <sys/dispatch.h>\n#include <sys/neutrino.h>\n#include <sys/procmgr.h>\n#include <sys/stat.h>\n\n#include \"motor_pid_dcmd.h\"\n\ntypedef struct {\n    /* TODO: embed the repository's main state (pid_ctrl_t from src/pid.h) here. */\n    motor_pid_status_t status;\n} service_state_t;\n\nstatic service_state_t        state;\nstatic resmgr_connect_funcs_t connect_funcs;\nstatic resmgr_io_funcs_t      io_funcs;\nstatic iofunc_attr_t          dev_attr;\nstatic char                   read_buf[128];\n\n/* ------------------------------------------------------------------ read() */\nstatic int io_read(resmgr_context_t *ctp, io_read_t *msg, RESMGR_OCB_T *ocb)\n{\n    int status = iofunc_read_verify(ctp, msg, ocb, NULL);\n    if (status != EOK)\n        return status;\n    if ((msg->i.xtype & _IO_XTYPE_MASK) != _IO_XTYPE_NONE)\n        return ENOSYS;\n\n    if (ocb->offset == 0) {\n        int n = snprintf(read_buf, sizeof read_buf, \"value=%d ticks=%llu\\n\",\n                         (int)state.status.value, (unsigned long long)state.status.ticks);\n        if (n < 0)\n            return EIO;\n    }\n    size_t len = strlen(read_buf);\n    size_t nbytes = 0;\n    if (ocb->offset >= 0 && (size_t)ocb->offset < len) {\n        nbytes = len - (size_t)ocb->offset;\n        if (nbytes > (size_t)_IO_READ_GET_NBYTES(msg))\n            nbytes = (size_t)_IO_READ_GET_NBYTES(msg);\n    }\n    _IO_SET_READ_NBYTES(ctp, nbytes);\n    if (nbytes == 0)\n        return _RESMGR_NPARTS(0);\n    SETIOV(ctp->iov, read_buf + ocb->offset, nbytes);\n    ocb->offset += (off_t)nbytes;\n    ocb->attr->flags |= IOFUNC_ATTR_ATIME;\n    return _RESMGR_NPARTS(1);\n}\n\n/* ------------------------------------------------------------------ write() */\nstatic int io_write(resmgr_context_t *ctp, io_write_t *msg, RESMGR_OCB_T *ocb)\n{\n    int status = iofunc_write_verify(ctp, msg, ocb, NULL);\n    if (status != EOK)\n        return status;\n    if ((msg->i.xtype & _IO_XTYPE_MASK) != _IO_XTYPE_NONE)\n        return ENOSYS;\n\n    size_t nbytes = (size_t)_IO_WRITE_GET_NBYTES(msg);\n    char   buf[32];\n    size_t want = nbytes < sizeof buf - 1 ? nbytes : sizeof buf - 1;\n    ssize_t got = resmgr_msgread(ctp, buf, want, sizeof msg->i);\n    if (got == -1)\n        return errno;\n    buf[got] = '\\0';\n    state.status.value = (int32_t)strtol(buf, NULL, 10);   /* TODO: parse the repo's command format */\n\n    _IO_SET_WRITE_NBYTES(ctp, nbytes);\n    if (nbytes > 0)\n        ocb->attr->flags |= IOFUNC_ATTR_MTIME | IOFUNC_ATTR_CTIME;\n    return EOK;\n}\n\n/* ------------------------------------------------------------------ devctl() */\nstatic int io_devctl(resmgr_context_t *ctp, io_devctl_t *msg, RESMGR_OCB_T *ocb)\n{\n    int status = iofunc_devctl_default(ctp, msg, ocb);\n    if (status != _RESMGR_DEFAULT)\n        return status;\n\n    void  *data = _DEVCTL_DATA(msg->i);\n    size_t nbytes = 0;\n\n    switch (msg->i.dcmd) {\n    case DCMD_MOTOR_PID_GET_STATUS:\n        if (msg->i.nbytes < sizeof(state.status))\n            return EINVAL;\n        memcpy(data, &state.status, sizeof(state.status));\n        nbytes = sizeof(state.status);\n        break;\n    case DCMD_MOTOR_PID_SET_VALUE: {\n        int32_t v;\n        if (msg->i.nbytes < sizeof v)\n            return EINVAL;\n        if (resmgr_msgread(ctp, &v, sizeof v, sizeof msg->i) != (ssize_t)sizeof v)\n            return EFAULT;\n        state.status.value = v;\n        break;\n    }\n    default:\n        return ENOSYS;\n    }\n\n    memset(&msg->o, 0, sizeof msg->o);\n    msg->o.ret_val = EOK;\n    msg->o.nbytes = (uint32_t)nbytes;\n    return _RESMGR_PTR(ctp, &msg->o, sizeof msg->o + nbytes);\n}\n\n/* ------------------------------------------------------------------ timer pulse */\nstatic int tick_handler(message_context_t *ctp, int code, unsigned flags, void *handle)\n{\n    (void)ctp; (void)code; (void)flags; (void)handle;\n    state.status.ticks++;\n    /* TODO: move the body of motor-pid-controller's periodic loop here\n       (read inputs, compute, write outputs). It runs in the resmgr's single thread,\n       so it is serialized with client requests and needs no extra locking. */\n    return 0;\n}\n\nstatic int drop_privileges(uid_t uid)\n{\n    /* Path registration is done. Deny and lock every ability for the non-root domain,\n       then become that user. */\n    int rc = procmgr_ability(0, PROCMGR_ADN_NONROOT | PROCMGR_AOP_DENY | PROCMGR_AOP_LOCK | PROCMGR_AID_EOL);\n    if (rc != EOK) {\n        fprintf(stderr, \"procmgr_ability: %s\\n\", strerror(rc));\n        return -1;\n    }\n    if (setgid((gid_t)uid) == -1 || setuid(uid) == -1) {\n        perror(\"setuid\");\n        return -1;\n    }\n    return 0;\n}\n\nint main(int argc, char **argv)\n{\n    long period_ms = 1;\n    long run_uid = -1;\n    int  opt;\n    while ((opt = getopt(argc, argv, \"p:u:\")) != -1) {\n        switch (opt) {\n        case 'p': period_ms = strtol(optarg, NULL, 10); break;\n        case 'u': run_uid = strtol(optarg, NULL, 10); break;\n        default:\n            fprintf(stderr, \"usage: %s [-p period_ms] [-u uid]\\n\", argv[0]);\n            return EXIT_FAILURE;\n        }\n    }\n    if (period_ms <= 0)\n        period_ms = 1;\n\n    dispatch_t *dpp = dispatch_create();\n    if (dpp == NULL) {\n        perror(\"dispatch_create\");\n        return EXIT_FAILURE;\n    }\n\n    resmgr_attr_t rattr;\n    memset(&rattr, 0, sizeof rattr);\n    rattr.nparts_max = 1;\n    rattr.msg_max_size = 2048;\n\n    iofunc_func_init(_RESMGR_CONNECT_NFUNCS, &connect_funcs, _RESMGR_IO_NFUNCS, &io_funcs);\n    io_funcs.read = io_read;\n    io_funcs.write = io_write;\n    io_funcs.devctl = io_devctl;\n    iofunc_attr_init(&dev_attr, S_IFCHR | 0666, NULL, NULL);\n\n    if (resmgr_attach(dpp, &rattr, \"/dev/motor_pid\", _FTYPE_ANY, 0, &connect_funcs, &io_funcs, &dev_attr) == -1) {\n        perror(\"resmgr_attach /dev/motor_pid\");\n        return EXIT_FAILURE;\n    }\n\n    int code = pulse_attach(dpp, MSG_FLAG_ALLOC_PULSE, 0, tick_handler, NULL);\n    if (code == -1) {\n        perror(\"pulse_attach\");\n        return EXIT_FAILURE;\n    }\n    int coid = message_connect(dpp, MSG_FLAG_SIDE_CHANNEL);\n    if (coid == -1) {\n        perror(\"message_connect\");\n        return EXIT_FAILURE;\n    }\n    struct sigevent ev;\n    SIGEV_PULSE_INIT(&ev, coid, 21, code, 0);\n    timer_t timer;\n    if (timer_create(CLOCK_MONOTONIC, &ev, &timer) == -1) {\n        perror(\"timer_create\");\n        return EXIT_FAILURE;\n    }\n    struct itimerspec its;\n    its.it_value.tv_sec = period_ms / 1000;\n    its.it_value.tv_nsec = (period_ms % 1000) * 1000000L;\n    its.it_interval = its.it_value;\n    if (timer_settime(timer, 0, &its, NULL) == -1) {\n        perror(\"timer_settime\");\n        return EXIT_FAILURE;\n    }\n\n    if (run_uid >= 0 && drop_privileges((uid_t)run_uid) != 0)\n        return EXIT_FAILURE;\n\n    dispatch_context_t *ctp = dispatch_context_alloc(dpp);\n    if (ctp == NULL) {\n        perror(\"dispatch_context_alloc\");\n        return EXIT_FAILURE;\n    }\n    for (;;) {\n        dispatch_context_t *next = dispatch_block(ctp);\n        if (next == NULL) {\n            if (errno == EINTR)\n                continue;\n            perror(\"dispatch_block\");\n            return EXIT_FAILURE;\n        }\n        ctp = next;\n        dispatch_handler(ctp);\n    }\n}\n",
-   "qcc_compiled": "skipped"
+   "qcc_compiled": "both"
   },
   {
    "path": "src/motor_pid_dcmd.h",
    "description": "devctl() command definitions (__DIOF/__DIOT)",
    "content": "/*\n * motor_pid_dcmd.h - devctl() protocol for /dev/motor_pid.\n * Generated by QNX Integration Advisor for motor-pid-controller. Apache-2.0.\n */\n#ifndef MOTOR_PID_DCMD_H\n#define MOTOR_PID_DCMD_H\n\n#include <devctl.h>\n#include <stdint.h>\n\ntypedef struct {\n    int32_t  value;        /* last value written by a client (e.g. a setpoint) */\n    uint32_t flags;\n    uint64_t ticks;        /* periodic timer pulses handled so far */\n} motor_pid_status_t;\n\n/* __DIOF: data from the driver; __DIOT: data to the driver; __DIOTF: both. */\n#define DCMD_MOTOR_PID_GET_STATUS   __DIOF(_DCMD_MISC, 0x01, motor_pid_status_t)\n#define DCMD_MOTOR_PID_SET_VALUE    __DIOT(_DCMD_MISC, 0x02, int32_t)\n\n#endif\n",
-   "qcc_compiled": "skipped"
+   "qcc_compiled": "both"
   },
   {
    "path": "src/motor_pidctl.c",
    "description": "Client: open + devctl, prints JSON",
    "content": "/*\n * motor_pidctl.c - tiny client for /dev/motor_pid (open + devctl).\n * Generated by QNX Integration Advisor for motor-pid-controller. Apache-2.0.\n *   motor_pidctl            -> prints status as JSON\n *   motor_pidctl set 1500   -> DCMD_MOTOR_PID_SET_VALUE\n */\n#include <errno.h>\n#include <fcntl.h>\n#include <stdio.h>\n#include <stdlib.h>\n#include <string.h>\n#include <unistd.h>\n\n#include <devctl.h>\n\n#include \"motor_pid_dcmd.h\"\n\nint main(int argc, char **argv)\n{\n    int fd = open(\"/dev/motor_pid\", O_RDWR);\n    if (fd == -1) {\n        perror(\"open /dev/motor_pid\");\n        return EXIT_FAILURE;\n    }\n    int rc;\n    if (argc == 3 && strcmp(argv[1], \"set\") == 0) {\n        int32_t v = (int32_t)strtol(argv[2], NULL, 10);\n        rc = devctl(fd, DCMD_MOTOR_PID_SET_VALUE, &v, sizeof v, NULL);\n        if (rc != EOK) {\n            fprintf(stderr, \"devctl SET_VALUE: %s\\n\", strerror(rc));\n            close(fd);\n            return EXIT_FAILURE;\n        }\n    }\n    motor_pid_status_t st;\n    memset(&st, 0, sizeof st);\n    rc = devctl(fd, DCMD_MOTOR_PID_GET_STATUS, &st, sizeof st, NULL);\n    close(fd);\n    if (rc != EOK) {\n        fprintf(stderr, \"devctl GET_STATUS: %s\\n\", strerror(rc));\n        return EXIT_FAILURE;\n    }\n    printf(\"{\\\"value\\\": %d, \\\"flags\\\": %u, \\\"ticks\\\": %llu}\\n\",\n           (int)st.value, (unsigned)st.flags, (unsigned long long)st.ticks);\n    return EXIT_SUCCESS;\n}\n",
-   "qcc_compiled": "skipped"
+   "qcc_compiled": "both"
   },
   {
    "path": "tests/compat_selftest.c",
    "description": "Runs every shim in qnx_compat.h on the target",
    "content": "/*\n * compat_selftest.c - exercises qnx_compat.h so the shims are compiled and run on the target.\n * Generated by QNX Integration Advisor for motor-pid-controller. Apache-2.0.\n * Exit status 0 means every shim worked.\n */\n#include <stdio.h>\n#include <stdlib.h>\n\n#include \"qnx_compat.h\"\n\nint main(void)\n{\n    int failures = 0;\n    qnx_periodic_timer_t t;\n    if (qnx_periodic_timer_create(&t, 1000000ULL, 10) != 0) {\n        perror(\"qnx_periodic_timer_create\");\n        failures++;\n    } else {\n        for (int i = 0; i < 100; i++) {\n            if (qnx_periodic_timer_wait(&t) != 0) {\n                perror(\"qnx_periodic_timer_wait\");\n                failures++;\n                break;\n            }\n        }\n        qnx_periodic_timer_destroy(&t);\n        printf(\"periodic timer: 100 periods ok\\n\");\n    }\n    return failures == 0 ? EXIT_SUCCESS : EXIT_FAILURE;\n}\n",
-   "qcc_compiled": "skipped"
+   "qcc_compiled": "both"
   },
   {
    "path": "Makefile.qnx",
@@ -1205,6 +1386,6 @@
   "daemon"
  ],
  "service_name": "motor_pid",
- "generated_at_utc": "2026-11-11T23:31:24Z",
+ "generated_at_utc": "2026-11-18T21:28:50Z",
  "sysroot_verified": true
 }
